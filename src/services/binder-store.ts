@@ -1,7 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian'
 import { FRONTMATTER_TYPE_KEY } from '../constants'
 import type { BinderFileType, DeckFormat, GameId } from '../types'
-import { ensureFolder, findAvailablePath } from '../utils/vault'
+import { ensureFolder, findAvailablePath, listMarkdownFilesIn } from '../utils/vault'
 
 /**
  * Vault persistence layer. Domain data never goes through loadData/saveData —
@@ -22,7 +22,10 @@ export class BinderStore {
 	}
 
 	listFiles(type: BinderFileType): TFile[] {
-		return this.app.vault.getMarkdownFiles().filter((file) => this.getFileType(file) === type)
+		// Scoped to the binder folder — the plugin never enumerates the vault.
+		return listMarkdownFilesIn(this.app, this.rootFolder()).filter(
+			(file) => this.getFileType(file) === type,
+		)
 	}
 
 	/** Optional role of a collection, e.g. "wishlist". */

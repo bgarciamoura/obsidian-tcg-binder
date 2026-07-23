@@ -67,6 +67,11 @@ tests/
 - **Callbacks lazy para settings** (`() => this.settings.x`) em store/sources — mudanças de settings valem na hora, sem re-instanciar serviços.
 - Lint: 2 warnings conhecidas e aceitas (deprecação de `tseslint.config` e sugestão de `getSettingDefinitions`) — mesmas do projeto de referência; zero erros é o critério.
 
+### Segurança / scanner da store (2026-07-23)
+
+- **Nunca usar `vault.getMarkdownFiles()`/`getFiles()`** — o scanner da submissão flagra "Vault Enumeration". Toda listagem passa por `listMarkdownFilesIn(app, rootFolder)` (walk recursivo do TFolder do binder). Consequência de produto: notas gerenciadas (cartas manuais incluídas) precisam viver dentro da pasta do binder.
+- Clipboard: apenas escrita (`writeText`) em ação explícita do usuário (export de deck) — flag "Clipboard Access" é aceitável e justificada na submissão; nunca adicionar leitura de clipboard.
+
 ### Gotchas do Obsidian descobertos neste projeto
 
 - **Bundle stale mascara qualquer correção** (perdemos um ciclo inteiro de debug nisso, 2026-07-23): copiar `main.js` para o vault NÃO recarrega o plugin — o Obsidian mantém o código antigo em memória até `Ctrl+R`/restart. O arquivo `.hotreload` só funciona com o plugin **Hot Reload instalado** (agora está no vault development). Diagnóstico rápido: `console.debug` de versão+fonte no `onload` (aparece com console em Verbose); ids de carta no formato errado (`me5-25` sem zero-pad = pokemontcg.io; `me5-025` = TCGdex) também denunciam qual build/fonte rodou.

@@ -1,7 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian'
 import { FRONTMATTER_TYPE_KEY } from '../constants'
 import type { CardData } from './card-data/card-data-source'
-import { ensureFolder, findAvailablePath } from '../utils/vault'
+import { ensureFolder, findAvailablePath, listMarkdownFilesIn } from '../utils/vault'
 import { sanitizeFileName } from '../utils/file-name'
 import { isBasicEnergy } from '../domain/deck-rules'
 
@@ -36,10 +36,10 @@ export class CardNotes {
 		private readonly rootFolder: () => string,
 	) {}
 
-	/** Index of every card note in the vault, keyed by card id. */
+	/** Index of every card note inside the binder folder, keyed by card id. */
 	buildIndex(): Map<string, CardMeta> {
 		const index = new Map<string, CardMeta>()
-		for (const file of this.app.vault.getMarkdownFiles()) {
+		for (const file of listMarkdownFilesIn(this.app, this.rootFolder())) {
 			const meta = this.readCardMeta(file)
 			if (meta) index.set(meta.cardId, meta)
 		}
@@ -72,7 +72,7 @@ export class CardNotes {
 	}
 
 	findCardNote(cardId: string): TFile | null {
-		for (const file of this.app.vault.getMarkdownFiles()) {
+		for (const file of listMarkdownFilesIn(this.app, this.rootFolder())) {
 			const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
 			if (!frontmatter) continue
 			if (frontmatter[FRONTMATTER_TYPE_KEY] === 'card' && frontmatter['card-id'] === cardId) {

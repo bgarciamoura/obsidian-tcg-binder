@@ -47,6 +47,7 @@ Every collection, deck and card is a regular note with frontmatter. Your data st
 - Cards: one note each, created on demand — price, set, rarity, legality, image
 - Backlinks between cards ↔ decks ↔ collections work natively
 - No server, no account, no telemetry. Offline-first with cached set data
+- **Scoped by design**: the plugin only reads and writes inside your binder folder (default `TCG Binder/`) — the rest of the vault is never touched or enumerated. Manual card notes must live inside that folder to be recognized
 
 ## Installation
 
