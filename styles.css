@@ -1,0 +1,910 @@
+/* TCG Binder — all colors/sizes come from Obsidian theme CSS variables,
+   so light and dark themes work without plugin-side theming. */
+
+/* ============ Foundations ============ */
+
+.tcgb-view-container {
+	padding: var(--size-4-4) var(--size-4-6);
+	overflow-y: auto;
+}
+
+.tcgb-root {
+	max-width: 760px;
+	margin: 0 auto;
+	font-family: var(--font-interface);
+	color: var(--text-normal);
+}
+
+.tcgb-title {
+	margin: 0 0 var(--size-4-4) 0;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.tcgb-section-title {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	margin: 0 0 var(--size-4-2) 0;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.tcgb-count-pill {
+	padding: 0 var(--size-2-3);
+	border-radius: 999px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.6;
+}
+
+/* Buttons — one vocabulary everywhere */
+.tcgb-btn {
+	padding: var(--size-2-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.tcgb-btn:hover:not(:disabled) {
+	background: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.tcgb-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.tcgb-btn-cta {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.tcgb-btn-cta:hover:not(:disabled) {
+	background: var(--interactive-accent-hover);
+	border-color: var(--interactive-accent-hover);
+}
+
+/* ============ Stat tiles ============ */
+
+.tcgb-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-4);
+}
+
+.tcgb-stat {
+	display: flex;
+	flex-direction: column-reverse;
+	gap: var(--size-2-1);
+	min-width: 128px;
+	padding: var(--size-4-2) var(--size-4-3);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.tcgb-stat-value {
+	color: var(--text-normal);
+	font-size: 1.7em;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.1;
+}
+
+/* ============ Card thumbnails ============ */
+
+.tcgb-thumb {
+	width: 34px;
+	height: 47px;
+	object-fit: cover;
+	border-radius: 3px;
+	background: var(--background-secondary);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+	flex-shrink: 0;
+	transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+	transform-origin: left center;
+}
+
+.tcgb-thumb:hover {
+	transform: scale(3.4);
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+	position: relative;
+	z-index: 10;
+}
+
+.tcgb-thumb-empty {
+	border: 1px dashed var(--background-modifier-border);
+	box-shadow: none;
+}
+
+.tcgb-thumb-empty:hover {
+	transform: none;
+	box-shadow: none;
+}
+
+/* ============ Dashboard lists ============ */
+
+.tcgb-list-section {
+	margin-top: var(--size-4-6);
+}
+
+.tcgb-list-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--size-4-3);
+	width: 100%;
+	padding: var(--size-4-2) var(--size-4-3);
+	margin-bottom: var(--size-2-2);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	text-align: left;
+	transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.tcgb-list-row::after {
+	content: '›';
+	color: var(--text-faint);
+	font-size: 1.2em;
+	transition: transform 150ms ease-out, color 150ms ease-out;
+}
+
+.tcgb-list-row:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.tcgb-list-row:hover::after {
+	transform: translateX(3px);
+	color: var(--text-muted);
+}
+
+.tcgb-list-name {
+	flex: 1;
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tcgb-list-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.tcgb-list-meta-ok {
+	color: var(--color-green);
+	font-weight: 600;
+}
+
+/* Empty state teaches the three entry points */
+.tcgb-empty-state {
+	margin-top: var(--size-4-8);
+	padding: var(--size-4-6);
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	text-align: center;
+}
+
+.tcgb-empty-title {
+	margin: 0 0 var(--size-4-3) 0;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+}
+
+.tcgb-empty-hints {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-empty-hints li {
+	padding: var(--size-2-2) 0;
+}
+
+.tcgb-empty {
+	margin-top: var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* ============ View header / toolbar ============ */
+
+.tcgb-view-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-bottom: var(--size-4-4);
+}
+
+.tcgb-view-header .tcgb-title {
+	margin: 0;
+}
+
+.tcgb-back {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: var(--size-2-1) var(--size-2-3);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: color 150ms ease-out;
+}
+
+.tcgb-back:hover {
+	color: var(--text-normal);
+}
+
+.tcgb-deck-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-4);
+}
+
+/* ============ Filters ============ */
+
+.tcgb-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin: var(--size-4-4) 0;
+}
+
+.tcgb-filter-search {
+	flex: 1;
+	min-width: 150px;
+}
+
+/* ============ Collection table ============ */
+
+.tcgb-table-wrap {
+	overflow-x: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.tcgb-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-table th {
+	text-align: left;
+	padding: var(--size-2-3) var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	white-space: nowrap;
+}
+
+.tcgb-table td {
+	padding: var(--size-2-2) var(--size-4-2);
+	border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	vertical-align: middle;
+}
+
+.tcgb-table tbody tr {
+	transition: background-color 150ms ease-out;
+}
+
+.tcgb-table tbody tr:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tcgb-table tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.tcgb-cell-thumb {
+	width: 42px;
+	padding-right: 0 !important;
+}
+
+.tcgb-cell-muted {
+	color: var(--text-muted);
+}
+
+.tcgb-cell-num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.tcgb-card-link {
+	cursor: pointer;
+	color: var(--text-normal);
+	font-weight: 500;
+	text-decoration: none;
+	transition: color 150ms ease-out;
+}
+
+.tcgb-card-link:hover {
+	color: var(--link-color);
+}
+
+/* Condition badges — quality is a state, color it like one */
+.tcgb-cond {
+	display: inline-block;
+	padding: 1px var(--size-2-2);
+	border-radius: 4px;
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+.tcgb-cond-NM {
+	color: var(--color-green);
+	background: rgba(var(--color-green-rgb), 0.12);
+}
+
+.tcgb-cond-LP {
+	color: var(--color-yellow);
+	background: rgba(var(--color-yellow-rgb), 0.12);
+}
+
+.tcgb-cond-MP {
+	color: var(--color-orange);
+	background: rgba(var(--color-orange-rgb), 0.12);
+}
+
+.tcgb-cond-HP {
+	color: var(--color-red);
+	background: rgba(var(--color-red-rgb), 0.1);
+}
+
+.tcgb-cond-DMG {
+	color: var(--color-red);
+	background: rgba(var(--color-red-rgb), 0.2);
+}
+
+.tcgb-cell-center {
+	text-align: center;
+}
+
+/* Inline variant/condition selects — quiet until you need them */
+.tcgb-cell-select {
+	appearance: none;
+	-webkit-appearance: none;
+	padding: 1px var(--size-2-2);
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-interface);
+	cursor: pointer;
+	transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.tcgb-cell-select:hover,
+.tcgb-cell-select:focus {
+	border-color: var(--background-modifier-border-hover);
+	background: var(--background-primary);
+}
+
+/* Condition selects keep the state color of their badge */
+select.tcgb-cond {
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+.tcgb-cell-actions {
+	white-space: nowrap;
+}
+
+.tcgb-row-action {
+	background: none;
+	border: none;
+	box-shadow: none;
+	color: var(--text-faint);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 150ms ease-out, color 150ms ease-out;
+}
+
+.tcgb-table tbody tr:hover .tcgb-row-action {
+	opacity: 1;
+}
+
+.tcgb-row-action:hover {
+	color: var(--text-normal);
+}
+
+@media (hover: none) {
+	.tcgb-row-action {
+		opacity: 1;
+	}
+}
+
+/* Playset pill — 4+ copies of a card */
+.tcgb-playset {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 1px var(--size-2-2);
+	border-radius: 999px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.tcgb-playset-icon {
+	width: 10px;
+	height: 10px;
+}
+
+/* Quantity stepper — controls fade in on row hover to keep the table calm */
+.tcgb-qty {
+	white-space: nowrap;
+}
+
+.tcgb-qty-value {
+	display: inline-block;
+	min-width: 2ch;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.tcgb-qty-btn {
+	padding: 0 var(--size-2-2);
+	margin: 0 var(--size-2-1);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	color: var(--text-muted);
+	opacity: 0;
+	transition: opacity 150ms ease-out, color 150ms ease-out;
+}
+
+.tcgb-table tbody tr:hover .tcgb-qty-btn,
+.tcgb-deck-row:hover .tcgb-qty-btn {
+	opacity: 1;
+}
+
+.tcgb-qty-btn:hover {
+	color: var(--text-normal);
+}
+
+.tcgb-remove {
+	background: none;
+	border: none;
+	box-shadow: none;
+	color: var(--text-faint);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 150ms ease-out, color 150ms ease-out;
+}
+
+.tcgb-table tbody tr:hover .tcgb-remove,
+.tcgb-deck-row:hover .tcgb-remove {
+	opacity: 1;
+}
+
+.tcgb-remove:hover {
+	color: var(--color-red);
+}
+
+/* Touch devices: controls always visible */
+@media (hover: none) {
+	.tcgb-qty-btn,
+	.tcgb-remove {
+		opacity: 1;
+	}
+}
+
+/* ============ Set progress ============ */
+
+.tcgb-sets {
+	margin-top: var(--size-4-8);
+}
+
+.tcgb-sets h3 {
+	margin: 0 0 var(--size-4-2) 0;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+}
+
+.tcgb-set-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-2-2) 0;
+}
+
+.tcgb-set-name {
+	flex: 0 0 38%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-progress {
+	flex: 1;
+	height: 7px;
+	background: var(--background-modifier-border);
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.tcgb-progress-fill {
+	width: 100%;
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 999px;
+	transform-origin: left center;
+	transition: transform 250ms ease-out;
+}
+
+.tcgb-set-count {
+	flex: 0 0 auto;
+	min-width: 7ch;
+	text-align: right;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-cost-btn {
+	padding: var(--size-2-1) var(--size-2-3);
+	background: none;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 999px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+	transition: color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.tcgb-cost-btn:hover:not(:disabled) {
+	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.tcgb-set-cost {
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* ============ Deck view ============ */
+
+.tcgb-panel {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-4);
+}
+
+.tcgb-panel-ok {
+	color: var(--color-green);
+	background: rgba(var(--color-green-rgb), 0.1);
+	border: 1px solid rgba(var(--color-green-rgb), 0.25);
+	font-weight: 600;
+}
+
+.tcgb-panel-issues {
+	color: var(--text-normal);
+	background: rgba(var(--color-red-rgb), 0.06);
+	border: 1px solid rgba(var(--color-red-rgb), 0.25);
+}
+
+.tcgb-panel-title {
+	font-weight: 700;
+	color: var(--color-red);
+	margin-bottom: var(--size-2-2);
+}
+
+.tcgb-deck-issues {
+	margin: 0;
+	padding-left: var(--size-4-5);
+	color: var(--text-muted);
+}
+
+.tcgb-deck-issues li {
+	padding: var(--size-2-1) 0;
+}
+
+.tcgb-deck-group {
+	margin-top: var(--size-4-6);
+}
+
+.tcgb-deck-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-2-2) var(--size-2-2);
+	border-radius: var(--radius-s);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-small);
+	transition: background-color 150ms ease-out;
+}
+
+.tcgb-deck-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.tcgb-deck-row:last-child {
+	border-bottom: none;
+}
+
+.tcgb-deck-row .tcgb-card-link {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tcgb-deck-row-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-deck-missing {
+	margin-top: var(--size-4-8);
+}
+
+.tcgb-deck-missing-qty {
+	min-width: 2.5em;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+/* ============ Modals ============ */
+
+.tcgb-suggestion {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+}
+
+.tcgb-suggestion-image {
+	width: 46px;
+	height: auto;
+	flex-shrink: 0;
+	border-radius: 3px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tcgb-suggestion-info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.tcgb-suggestion-name {
+	color: var(--text-normal);
+	font-weight: 500;
+}
+
+.tcgb-suggestion-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-add-preview {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-4);
+	margin-bottom: var(--size-4-4);
+}
+
+.tcgb-add-image {
+	width: 110px;
+	height: auto;
+	border-radius: var(--radius-s);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tcgb-import-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-import-textarea {
+	width: 100%;
+	resize: vertical;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-import-status {
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-import-failed {
+	max-height: 8em;
+	overflow-y: auto;
+	padding: var(--size-4-2);
+	background: rgba(var(--color-red-rgb), 0.06);
+	border: 1px solid rgba(var(--color-red-rgb), 0.2);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-error);
+}
+
+/* ============ Portfolio chart ============ */
+
+.tcgb-chart-section {
+	margin: var(--size-4-6) 0;
+	padding: var(--size-4-3) var(--size-4-4);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.tcgb-chart-section h3 {
+	margin: 0 0 var(--size-4-2) 0;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+}
+
+.tcgb-chart-wrap {
+	position: relative;
+}
+
+.tcgb-chart {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+.tcgb-chart-grid {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.tcgb-chart-label {
+	fill: var(--text-muted);
+	font-size: 10px;
+	font-family: var(--font-interface);
+}
+
+.tcgb-chart-line {
+	fill: none;
+	stroke: var(--interactive-accent);
+	stroke-width: 2;
+	vector-effect: non-scaling-stroke;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.tcgb-chart-dot {
+	fill: var(--interactive-accent);
+	stroke: var(--background-secondary);
+	stroke-width: 2;
+}
+
+.tcgb-chart-value {
+	fill: var(--text-normal);
+	font-size: 11px;
+	font-weight: 600;
+	font-family: var(--font-interface);
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-chart-crosshair {
+	stroke: var(--background-modifier-border-hover);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+}
+
+.tcgb-chart-tooltip {
+	position: absolute;
+	top: 0;
+	transform: translateX(-50%);
+	padding: var(--size-2-1) var(--size-2-3);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	pointer-events: none;
+	box-shadow: var(--shadow-s);
+}
+
+.tcgb-chart-table summary {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+	margin-top: var(--size-4-2);
+}
+
+/* ============ Narrow layouts (mobile / side panes) ============ */
+
+@media (max-width: 600px) {
+	.tcgb-view-container {
+		padding: var(--size-4-3);
+	}
+
+	.tcgb-stat {
+		min-width: 96px;
+		flex: 1;
+	}
+
+	.tcgb-filters {
+		gap: var(--size-2-2);
+	}
+
+	.tcgb-filter-search {
+		flex-basis: 100%;
+	}
+
+	.tcgb-set-name {
+		flex-basis: 30%;
+	}
+
+	.tcgb-table {
+		font-size: var(--font-ui-smaller);
+	}
+}
+
+/* ============ Reduced motion ============ */
+
+@media (prefers-reduced-motion: reduce) {
+	.tcgb-thumb,
+	.tcgb-thumb:hover,
+	.tcgb-btn,
+	.tcgb-list-row,
+	.tcgb-list-row::after,
+	.tcgb-qty-btn,
+	.tcgb-remove,
+	.tcgb-card-link,
+	.tcgb-progress-fill,
+	.tcgb-deck-row,
+	.tcgb-back,
+	.tcgb-cost-btn,
+	.tcgb-table tbody tr {
+		transition: none;
+	}
+
+	.tcgb-thumb:hover {
+		transform: none;
+	}
+
+	.tcgb-progress-fill {
+		transition: none;
+	}
+}

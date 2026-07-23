@@ -1,0 +1,30 @@
+{
+	"compilerOptions": {
+		"baseUrl": "src",
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"module": "ESNext",
+		"target": "ES2020",
+		"allowJs": true,
+		"noImplicitAny": true,
+		"noImplicitThis": true,
+		"noImplicitReturns": true,
+		"moduleResolution": "node",
+		"importHelpers": true,
+		"isolatedModules": true,
+		"strictNullChecks": true,
+		"strictBindCallApply": true,
+		"allowSyntheticDefaultImports": true,
+		"useUnknownInCatchVariables": true,
+		"jsx": "react-jsx",
+		"lib": [
+			"DOM",
+			"ES2020",
+			"DOM.Iterable"
+		]
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx"
+	]
+}
