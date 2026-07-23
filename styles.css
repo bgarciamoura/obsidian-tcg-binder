@@ -325,7 +325,7 @@
 	border-bottom: none;
 }
 
-/* Two-class selector outranks `.tcgb-table td` without needing !important */
+/* Two-class selector outranks `.tcgb-table td` by specificity alone */
 .tcgb-table .tcgb-cell-thumb {
 	width: 42px;
 	padding-right: 0;
