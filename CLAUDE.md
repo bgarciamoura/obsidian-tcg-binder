@@ -16,6 +16,10 @@ Plugin do Obsidian para controle de **coleções, decks e cartas de Pokémon TCG
 - `docs/product-research.md` — análise dos apps concorrentes (Dex, Collectr, TCG Collector, pkmn.gg, Limitless, Moxfield/Archidekt/ManaBox): table stakes, diferenciais e vantagens do modelo local-first em Markdown.
 - `PRODUCT.md` — visão, posicionamento e **roadmap priorizado em 5 fases** (fundação de cartas → coleção → decks → diferenciais → lançamento) + modelo de dados proposto. Consultar antes de iniciar qualquer feature; marcar os checkboxes conforme entregas.
 
+## Repositório
+
+`git@github.com:bgarciamoura/obsidian-tcg-binder.git` (renomeado de `obsidian-tcg-builder` em 2026-07-23; o GitHub mantém redirect). Nunca fazer push sem autorização explícita do usuário.
+
 ## Estado do projeto
 
 Scaffold pronto e validado (`npm run build`, `npm run lint` e `npm run test` passando). A arquitetura abaixo foi extraída do plugin de referência `../obsidian-notion-bases-plugin` (plugin publicado e maduro do mesmo autor) e deve ser seguida aqui.
