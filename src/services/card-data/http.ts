@@ -50,6 +50,16 @@ async function requestWithRetry(
 	}
 }
 
+/** Whether a URL responds successfully (HEAD, no retry — used for probes). */
+export async function urlExists(url: string): Promise<boolean> {
+	try {
+		const response = await requestUrl({ url, method: 'HEAD', throw: false })
+		return response.status < 400
+	} catch {
+		return false
+	}
+}
+
 function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => window.setTimeout(resolve, ms))
 }

@@ -20,6 +20,8 @@ import { ImportDeckModal } from './modals/import-deck-modal'
 import { FilePickerModal } from './modals/file-picker-modal'
 import { SetPickerModal } from './modals/set-picker-modal'
 import type { SetInfo } from './services/card-data/card-data-source'
+import { pokemonTcgIoImageCandidates } from './services/card-data/fallback-images'
+import { urlExists } from './services/card-data/http'
 import { CardListLine, parseCardList, serializeCardList } from './domain/card-list'
 import { parseCsv } from './domain/csv'
 import { CsvCardRow, mapCsvRows } from './domain/csv-import'
@@ -612,8 +614,18 @@ export default class TcgBinderPlugin extends Plugin {
 				progress.setMessage(`${t('images.fetching')} ${i + 1}/${missing.length}`)
 				try {
 					const card = await source.getCard(meta.cardId)
-					if (card?.imageLarge) {
-						await this.cardNotes.setImage(meta.file, card.imageLarge, meta.name)
+					let image = card?.imageLarge ?? null
+					if (!image && meta.setId && meta.number) {
+						// TCGdex has no scan — probe the pokemontcg.io static CDN.
+						for (const candidate of pokemonTcgIoImageCandidates(meta.setId, meta.number)) {
+							if (await urlExists(candidate)) {
+								image = candidate
+								break
+							}
+						}
+					}
+					if (image) {
+						await this.cardNotes.setImage(meta.file, image, meta.name)
 						updated++
 					}
 				} catch (error) {
