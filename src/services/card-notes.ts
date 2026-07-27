@@ -137,6 +137,23 @@ export class CardNotes {
 		return file
 	}
 
+	/**
+	 * Backfills the image on a card note: frontmatter always; a body embed
+	 * only when the body has none yet (the body belongs to the user).
+	 */
+	async setImage(file: TFile, image: string, cardName: string): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm.image = image
+		})
+		await this.app.vault.process(file, (content) => {
+			if (content.includes('![')) return content
+			const frontmatter = /^---\n[\s\S]*?\n---\n/.exec(content)
+			if (!frontmatter) return content
+			const head = frontmatter[0]
+			return `${head}![${cardName}](${image})\n${content.slice(head.length)}`
+		})
+	}
+
 	/** Refreshes the market price stamped on a card note. */
 	async updatePrice(file: TFile, price: number): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {

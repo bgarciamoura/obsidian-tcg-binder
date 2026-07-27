@@ -76,6 +76,13 @@
 	border-color: var(--interactive-accent-hover);
 }
 
+.tcgb-dashboard-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+}
+
 /* ============ Stat tiles ============ */
 
 .tcgb-summary {
@@ -958,10 +965,15 @@ select.tcgb-cond {
 	position: relative;
 }
 
+/* Room for the mode toggle on the left of the input */
+.tcgb-search-modal .prompt-input {
+	padding-left: 48px;
+}
+
 .tcgb-search-mode {
 	position: absolute;
 	top: 50%;
-	right: var(--size-4-2);
+	left: var(--size-4-2);
 	transform: translateY(-50%);
 	padding: var(--size-2-1) var(--size-2-2);
 	background: transparent;
@@ -983,7 +995,7 @@ select.tcgb-cond {
 	content: '';
 	position: absolute;
 	top: 50%;
-	right: 52px;
+	right: 40px;
 	width: 13px;
 	height: 13px;
 	margin-top: -7px;

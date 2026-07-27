@@ -219,8 +219,20 @@ export class TcgdexSource implements CardDataSource {
 		}
 	}
 
+	/**
+	 * TCGdex advertises localized asset paths that frequently 404 (verified:
+	 * pt bases exist in the API but not on the CDN). English scans are the
+	 * canonical always-present set, and note embeds can't fall back at render
+	 * time — so image URLs are always normalized to the `en` path.
+	 */
+	private imageBase(image?: string): string | null {
+		if (!image) return null
+		return image.replace(/^(https:\/\/assets\.tcgdex\.net\/)[^/]+\//, '$1en/')
+	}
+
 	private resumeToCard(resume: TdxResume, setId: string): CardData {
 		const set = this.sets?.find((s) => s.id === setId)
+		const image = this.imageBase(resume.image)
 		return {
 			id: resume.id,
 			game: this.game,
@@ -232,8 +244,8 @@ export class TcgdexSource implements CardDataSource {
 			supertype: '',
 			subtypes: [],
 			rarity: null,
-			imageSmall: resume.image ? `${resume.image}/low.webp` : null,
-			imageLarge: resume.image ? `${resume.image}/high.webp` : null,
+			imageSmall: image ? `${image}/low.webp` : null,
+			imageLarge: image ? `${image}/high.webp` : null,
 			marketPrice: null,
 			legalities: [],
 			copyLimitExempt: false,
@@ -242,6 +254,7 @@ export class TcgdexSource implements CardDataSource {
 
 	private toCardData(card: TdxCard): CardData {
 		const setId = card.set?.id ?? card.id.split('-')[0]
+		const image = this.imageBase(card.image)
 		const subtypes = [card.stage, card.suffix, card.trainerType, card.energyType].filter(
 			(value): value is string => typeof value === 'string' && value.length > 0,
 		)
@@ -263,8 +276,8 @@ export class TcgdexSource implements CardDataSource {
 			supertype: card.category === 'Pokemon' ? 'Pokémon' : (card.category ?? ''),
 			subtypes,
 			rarity: card.rarity ?? null,
-			imageSmall: card.image ? `${card.image}/low.webp` : null,
-			imageLarge: card.image ? `${card.image}/high.webp` : null,
+			imageSmall: image ? `${image}/low.webp` : null,
+			imageLarge: image ? `${image}/high.webp` : null,
 			marketPrice: this.extractMarketPrice(card),
 			legalities,
 			// TCGdex marks basic energies as energyType "Normal" (vs "Special").

@@ -105,6 +105,13 @@ export default class TcgBinderPlugin extends Plugin {
 			},
 		})
 		this.addCommand({
+			id: 'fetch-missing-images',
+			name: t('command.fetch-images'),
+			callback: () => {
+				void this.fetchMissingImages()
+			},
+		})
+		this.addCommand({
 			id: 'add-cards-to-deck',
 			name: t('command.add-cards-to-deck'),
 			callback: () => {
@@ -587,6 +594,39 @@ export default class TcgBinderPlugin extends Plugin {
 		} finally {
 			progress.hide()
 		}
+	}
+
+	/** Backfills images on card notes that have none (e.g. scans published later). */
+	async fetchMissingImages(): Promise<void> {
+		const missing = [...this.cardNotes.buildIndex().values()].filter((meta) => !meta.image)
+		if (missing.length === 0) {
+			new Notice(t('images.none-missing'))
+			return
+		}
+
+		const source = this.activeSource()
+		const progress = new Notice(t('images.fetching'), 0)
+		let updated = 0
+		try {
+			for (const [i, meta] of missing.entries()) {
+				progress.setMessage(`${t('images.fetching')} ${i + 1}/${missing.length}`)
+				try {
+					const card = await source.getCard(meta.cardId)
+					if (card?.imageLarge) {
+						await this.cardNotes.setImage(meta.file, card.imageLarge, meta.name)
+						updated++
+					}
+				} catch (error) {
+					if (error instanceof RateLimitError) throw error
+					console.error(`[TCG Binder] image fetch failed for ${meta.cardId}`, error)
+				}
+			}
+		} catch (error) {
+			new Notice(error instanceof RateLimitError ? t('search.rate-limited') : String(error))
+		} finally {
+			progress.hide()
+		}
+		new Notice(t('images.done', { updated, missing: missing.length - updated }))
 	}
 
 	private async createWishlist(): Promise<void> {

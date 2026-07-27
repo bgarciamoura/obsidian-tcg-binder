@@ -23,6 +23,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 	const [selected, setSelected] = useState<Selection | null>(null)
 	const [chartRefresh, setChartRefresh] = useState(0)
 	const [updatingPrices, setUpdatingPrices] = useState(false)
+	const [fetchingImages, setFetchingImages] = useState(false)
 
 	const collections = useMemo(() => plugin.store.listFiles('collection'), [plugin, version])
 	const decks = useMemo(() => plugin.store.listFiles('deck'), [plugin, version])
@@ -73,22 +74,36 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 
 			<PortfolioChart plugin={plugin} refresh={chartRefresh} />
 
-			{collections.length > 0 && (
-				<button
-					className="tcgb-btn"
-					disabled={updatingPrices}
-					onClick={() => {
-						setUpdatingPrices(true)
-						void plugin
-							.updatePricesAndSnapshot()
-							.finally(() => {
-								setUpdatingPrices(false)
-								setChartRefresh((n) => n + 1)
+			{(collections.length > 0 || decks.length > 0) && (
+				<div className="tcgb-dashboard-actions">
+					<button
+						className="tcgb-btn"
+						disabled={updatingPrices}
+						onClick={() => {
+							setUpdatingPrices(true)
+							void plugin
+								.updatePricesAndSnapshot()
+								.finally(() => {
+									setUpdatingPrices(false)
+									setChartRefresh((n) => n + 1)
+								})
+						}}
+					>
+						{t('prices.update')}
+					</button>
+					<button
+						className="tcgb-btn"
+						disabled={fetchingImages}
+						onClick={() => {
+							setFetchingImages(true)
+							void plugin.fetchMissingImages().finally(() => {
+								setFetchingImages(false)
 							})
-					}}
-				>
-					{t('prices.update')}
-				</button>
+						}}
+					>
+						{t('images.fetch')}
+					</button>
+				</div>
 			)}
 
 			{collections.length > 0 && (
