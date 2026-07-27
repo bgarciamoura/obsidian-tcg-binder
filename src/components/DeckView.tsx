@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import type { TFile } from 'obsidian'
 import { useApp } from '../context'
 import { t } from '../i18n'
+import { useState } from 'react'
 import { validateDeck, validateDeckLegality } from '../domain/deck-rules'
+import type { ViewMode } from '../settings'
 import type { CardMeta } from '../services/card-notes'
 import type { DeckStoredEntry } from '../services/deck-store'
 import type { DeckFormat } from '../types'
@@ -32,6 +34,7 @@ function groupOf(row: Row): Group {
 export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 	const app = useApp()
 	const format = plugin.decks.readFormat(file)
+	const [mode, setMode] = useState<ViewMode>(plugin.settings.defaultViewMode)
 
 	const rows = useMemo<Row[]>(() => {
 		const index = plugin.cardNotes.buildIndex()
@@ -123,6 +126,14 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 				<button className="tcgb-btn" onClick={() => void plugin.exportDeck(file)}>
 					{t('deck.export')}
 				</button>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('view.toggle-mode')}
+					aria-label={t('view.toggle-mode')}
+					onClick={() => setMode((m) => (m === 'list' ? 'grid' : 'list'))}
+				>
+					{mode === 'list' ? '▦' : '≣'}
+				</button>
 			</div>
 
 			<div className="tcgb-summary">
@@ -162,7 +173,39 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 							{t(`deck.group.${group}`)}
 							<span className="tcgb-count-pill">{items.reduce((sum, r) => sum + r.qty, 0)}</span>
 						</h3>
-						{items.map((row) => (
+						{mode === 'grid' ? (
+							<div className="tcgb-card-grid">
+								{items.map((row) => (
+									<div key={row.id} className="tcgb-card-tile">
+										<div className="tcgb-tile-imgwrap" onClick={() => openCard(row)}>
+											{row.meta?.image ? (
+												<img className="tcgb-tile-img" loading="lazy" src={row.meta.image} alt="" />
+											) : (
+												<div className="tcgb-tile-img tcgb-tile-img-empty" />
+											)}
+											<span className="tcgb-tile-qty">{row.qty}×</span>
+										</div>
+										<div className="tcgb-tile-name" onClick={() => openCard(row)}>
+											{row.meta?.name ?? row.id}
+										</div>
+										<div className="tcgb-tile-footer">
+											<span className="tcgb-tile-meta">
+												{[row.meta?.setCode, row.meta?.number].filter(Boolean).join(' ')}
+											</span>
+											<span className="tcgb-qty">
+												<button className="tcgb-qty-btn" onClick={() => changeQty(row, -1)}>
+													−
+												</button>
+												<button className="tcgb-qty-btn" onClick={() => changeQty(row, 1)}>
+													+
+												</button>
+											</span>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							items.map((row) => (
 							<div key={row.id} className="tcgb-deck-row">
 								{row.meta?.image ? (
 									<img className="tcgb-thumb" loading="lazy" src={row.meta.image} alt="" />
@@ -192,7 +235,8 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 									×
 								</button>
 							</div>
-						))}
+							))
+						)}
 					</section>
 				)
 			})}

@@ -4,6 +4,7 @@ import { useApp } from '../context'
 import { t } from '../i18n'
 import { CARD_CONDITIONS, CARD_VARIANTS } from '../types'
 import type { CardCondition, CardVariant } from '../types'
+import type { ViewMode } from '../settings'
 import { computeCollectionStats } from '../domain/collection-stats'
 import { computeSetProgress } from '../domain/set-progress'
 import type { SetInfo } from '../services/card-data/card-data-source'
@@ -31,6 +32,7 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 	const [completion, setCompletion] = useState<
 		Record<string, { missing: number; cost: number } | 'loading'>
 	>({})
+	const [mode, setMode] = useState<ViewMode>(plugin.settings.defaultViewMode)
 	const [setFilter, setSetFilter] = useState(ALL)
 	const [variantFilter, setVariantFilter] = useState(ALL)
 	const [conditionFilter, setConditionFilter] = useState(ALL)
@@ -233,10 +235,57 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 						</option>
 					))}
 				</select>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('view.toggle-mode')}
+					aria-label={t('view.toggle-mode')}
+					onClick={() => setMode((m) => (m === 'list' ? 'grid' : 'list'))}
+				>
+					{mode === 'list' ? '▦' : '≣'}
+				</button>
 			</div>
 
 			{filtered.length === 0 ? (
 				<p className="tcgb-empty">{t('view.no-entries')}</p>
+			) : mode === 'grid' ? (
+				<div className="tcgb-card-grid">
+					{filtered.map((row) => (
+						<div key={`${row.id}-${row.variant}-${row.condition}`} className="tcgb-card-tile">
+							<div className="tcgb-tile-imgwrap" onClick={() => openCard(row)}>
+								{row.meta?.image ? (
+									<img className="tcgb-tile-img" loading="lazy" src={row.meta.image} alt="" />
+								) : (
+									<div className="tcgb-tile-img tcgb-tile-img-empty" />
+								)}
+								{(copiesById.get(row.id) ?? 0) >= 4 && (
+									<span className="tcgb-playset tcgb-tile-playset" title={t('view.playset-tooltip')}>
+										4×
+									</span>
+								)}
+							</div>
+							<div className="tcgb-tile-name" onClick={() => openCard(row)}>
+								{row.meta?.name ?? row.id}
+							</div>
+							<div className="tcgb-tile-meta">
+								{[row.meta?.setCode ?? row.meta?.setName, row.meta?.number ? `#${row.meta.number}` : null, t(`variant.${row.variant}`)]
+									.filter(Boolean)
+									.join(' · ')}
+							</div>
+							<div className="tcgb-tile-footer">
+								<span className={`tcgb-cond tcgb-cond-${row.condition}`}>{row.condition}</span>
+								<span className="tcgb-qty">
+									<button className="tcgb-qty-btn" onClick={() => changeQty(row, -1)}>
+										−
+									</button>
+									<span className="tcgb-qty-value">{row.qty}</span>
+									<button className="tcgb-qty-btn" onClick={() => changeQty(row, 1)}>
+										+
+									</button>
+								</span>
+							</div>
+						</div>
+					))}
+				</div>
 			) : (
 				<div className="tcgb-table-wrap">
 					<table className="tcgb-table">

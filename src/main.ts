@@ -198,7 +198,7 @@ export default class TcgBinderPlugin extends Plugin {
 	}
 
 	openCardSearch(): void {
-		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, (card) => {
+		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, this.settings.defaultViewMode, (card) => {
 			void this.openCardNote(card)
 		}).open()
 	}
@@ -226,7 +226,7 @@ export default class TcgBinderPlugin extends Plugin {
 
 	/** Search → configure → add, looping while "keep searching" is on. */
 	private runAddCardsLoop(collections: TFile[]): void {
-		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, (card) => {
+		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, this.settings.defaultViewMode, (card) => {
 			new AddCardModal(this.app, card, collections, (choice) => {
 				void (async () => {
 					try {
@@ -470,7 +470,7 @@ export default class TcgBinderPlugin extends Plugin {
 
 	/** Search → quantity → add to deck, looping while "keep searching" is on. */
 	runAddToDeckLoop(decks: TFile[]): void {
-		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, (card) => {
+		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, this.settings.defaultViewMode, (card) => {
 			new AddToDeckModal(this.app, card, decks, (choice) => {
 				void (async () => {
 					try {

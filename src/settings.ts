@@ -16,6 +16,9 @@ const LANGUAGE_LABELS: Record<TcgdexLanguage, string> = {
 
 export type CardDataSourceId = 'tcgdex' | 'pokemontcg-io'
 
+/** How card collections/results are laid out: table rows or a card grid. */
+export type ViewMode = 'list' | 'grid'
+
 export interface TcgBinderSettings {
 	/** Vault folder that holds collections/ and decks/. */
 	rootFolder: string
@@ -31,6 +34,8 @@ export interface TcgBinderSettings {
 	 * the locale has gaps. Ids match across languages.
 	 */
 	cardLanguage: TcgdexLanguage
+	/** Global default for list vs card-grid layout; every surface has a local toggle. */
+	defaultViewMode: ViewMode
 	/** Optional pokemontcg.io key — only raises rate limits. */
 	pokemonTcgApiKey: string
 }
@@ -39,6 +44,7 @@ export const DEFAULT_SETTINGS: TcgBinderSettings = {
 	rootFolder: 'TCG Binder',
 	dataSource: 'tcgdex',
 	cardLanguage: 'en',
+	defaultViewMode: 'list',
 	pokemonTcgApiKey: '',
 }
 
@@ -73,6 +79,19 @@ export class TcgBinderSettingTab extends PluginSettingTab {
 				dd.setValue(this.plugin.settings.dataSource)
 				dd.onChange(async (value) => {
 					this.plugin.settings.dataSource = value === 'pokemontcg-io' ? 'pokemontcg-io' : 'tcgdex'
+					await this.plugin.saveSettings()
+				})
+			})
+
+		new Setting(containerEl)
+			.setName(t('settings.view-mode.name'))
+			.setDesc(t('settings.view-mode.desc'))
+			.addDropdown((dd) => {
+				dd.addOption('list', t('view-mode.list'))
+				dd.addOption('grid', t('view-mode.grid'))
+				dd.setValue(this.plugin.settings.defaultViewMode)
+				dd.onChange(async (value) => {
+					this.plugin.settings.defaultViewMode = value === 'grid' ? 'grid' : 'list'
 					await this.plugin.saveSettings()
 				})
 			})

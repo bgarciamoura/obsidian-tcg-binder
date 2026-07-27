@@ -3,18 +3,24 @@ import { parseCardQuery } from '../domain/card-query'
 import type { CardData, CardDataSource, CardSearchQuery } from '../services/card-data/card-data-source'
 import { RateLimitError } from '../services/card-data/card-data-source'
 import type { SetCatalog } from '../services/set-catalog'
+import type { ViewMode } from '../settings'
 import { t } from '../i18n'
 
 const DEBOUNCE_MS = 250
 
 /** Async card search with debounce: by name, or by set + number ("SVI 45"). */
 export class CardSearchModal extends SuggestModal<CardData> {
+	/** Session-sticky layout choice; falls back to the global default. */
+	private static lastMode: ViewMode | null = null
+
 	private searchVersion = 0
+	private loadingCount = 0
 
 	constructor(
 		app: App,
 		private readonly source: CardDataSource,
 		private readonly catalog: SetCatalog,
+		private readonly defaultMode: ViewMode,
 		private readonly onChoose: (card: CardData) => void,
 	) {
 		super(app)
@@ -25,11 +31,48 @@ export class CardSearchModal extends SuggestModal<CardData> {
 
 	onOpen(): void {
 		void super.onOpen()
+		this.modalEl.addClass('tcgb-search-modal')
+		this.applyMode()
+
+		const container = this.modalEl.querySelector('.prompt-input-container')
+		if (container instanceof HTMLElement) {
+			const toggle = container.createEl('button', {
+				cls: 'tcgb-search-mode',
+				attr: { 'aria-label': t('view.toggle-mode'), title: t('view.toggle-mode') },
+			})
+			this.syncToggleGlyph(toggle)
+			toggle.addEventListener('click', (event) => {
+				event.preventDefault()
+				CardSearchModal.lastMode = this.currentMode() === 'list' ? 'grid' : 'list'
+				this.applyMode()
+				this.syncToggleGlyph(toggle)
+				this.inputEl.focus()
+			})
+		}
+
 		// When this modal is opened from another modal's close (the "keep
 		// searching" loop), the closing modal's focus restore can steal focus
 		// from our input — typing then goes nowhere. Re-focus after the dust
 		// settles (same workaround as the reference plugin's quick-add modal).
 		window.setTimeout(() => this.inputEl.focus(), 50)
+	}
+
+	private currentMode(): ViewMode {
+		return CardSearchModal.lastMode ?? this.defaultMode
+	}
+
+	private applyMode(): void {
+		this.modalEl.toggleClass('tcgb-grid-mode', this.currentMode() === 'grid')
+	}
+
+	private syncToggleGlyph(toggle: HTMLElement): void {
+		toggle.setText(this.currentMode() === 'grid' ? '≣' : '▦')
+	}
+
+	/** Spinner in the prompt while a request is in flight (counted — searches overlap). */
+	private setLoading(on: boolean): void {
+		this.loadingCount = Math.max(0, this.loadingCount + (on ? 1 : -1))
+		this.modalEl.toggleClass('tcgb-searching', this.loadingCount > 0)
 	}
 
 	async getSuggestions(query: string): Promise<CardData[]> {
@@ -41,6 +84,7 @@ export class CardSearchModal extends SuggestModal<CardData> {
 		await delay(DEBOUNCE_MS)
 		if (version !== this.searchVersion) return []
 
+		this.setLoading(true)
 		try {
 			const results = await this.source.searchCards(await this.buildQuery(trimmed))
 			if (version !== this.searchVersion) return []
@@ -54,6 +98,8 @@ export class CardSearchModal extends SuggestModal<CardData> {
 				new Notice(error instanceof RateLimitError ? t('search.rate-limited') : t('search.error'))
 			}
 			return []
+		} finally {
+			this.setLoading(false)
 		}
 	}
 
@@ -64,6 +110,9 @@ export class CardSearchModal extends SuggestModal<CardData> {
 				cls: 'tcgb-suggestion-image',
 				attr: { src: card.imageSmall, loading: 'lazy', alt: card.name },
 			})
+		} else {
+			// Placeholder keeps grid tiles aligned when a card has no scan.
+			el.createDiv({ cls: 'tcgb-suggestion-image tcgb-suggestion-noimg' })
 		}
 		const info = el.createDiv('tcgb-suggestion-info')
 		info.createDiv({ cls: 'tcgb-suggestion-name', text: card.name })

@@ -853,6 +853,178 @@ select.tcgb-cond {
 	margin-top: var(--size-4-2);
 }
 
+/* ============ Card grid mode ============ */
+
+.tcgb-mode-toggle {
+	min-width: 34px;
+	font-size: var(--font-ui-medium);
+	line-height: 1;
+}
+
+.tcgb-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: var(--size-4-3);
+	margin-top: var(--size-4-2);
+}
+
+.tcgb-card-tile {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	padding: var(--size-2-3);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.tcgb-card-tile:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.tcgb-tile-imgwrap {
+	position: relative;
+	cursor: pointer;
+}
+
+.tcgb-tile-img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 63 / 88;
+	object-fit: cover;
+	border-radius: var(--radius-s);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tcgb-tile-img-empty {
+	border: 1px dashed var(--background-modifier-border);
+	box-shadow: none;
+}
+
+.tcgb-tile-qty {
+	position: absolute;
+	top: var(--size-2-2);
+	left: var(--size-2-2);
+	padding: 1px var(--size-2-2);
+	border-radius: 999px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-tile-playset {
+	position: absolute;
+	top: var(--size-2-2);
+	right: var(--size-2-2);
+}
+
+.tcgb-tile-name {
+	font-weight: 500;
+	font-size: var(--font-ui-small);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.tcgb-tile-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tcgb-tile-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2-2);
+	margin-top: auto;
+}
+
+/* Tiles keep their steppers visible — hover-reveal is a table behavior */
+.tcgb-card-tile .tcgb-qty-btn {
+	opacity: 1;
+}
+
+/* ============ Search modal: grid mode + loading ============ */
+
+.tcgb-search-modal .prompt-input-container {
+	position: relative;
+}
+
+.tcgb-search-mode {
+	position: absolute;
+	top: 50%;
+	right: var(--size-4-2);
+	transform: translateY(-50%);
+	padding: var(--size-2-1) var(--size-2-2);
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1;
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.tcgb-search-mode:hover {
+	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.tcgb-search-modal.tcgb-searching .prompt-input-container::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	right: 52px;
+	width: 13px;
+	height: 13px;
+	margin-top: -7px;
+	border: 2px solid var(--background-modifier-border);
+	border-top-color: var(--interactive-accent);
+	border-radius: 50%;
+	animation: tcgb-spin 800ms linear infinite;
+}
+
+@keyframes tcgb-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.tcgb-grid-mode .prompt-results {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: var(--size-2-3);
+	padding: var(--size-2-3);
+}
+
+.tcgb-grid-mode .suggestion-item.tcgb-suggestion {
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-2-2);
+}
+
+.tcgb-grid-mode .tcgb-suggestion-image {
+	width: 100%;
+	aspect-ratio: 63 / 88;
+	object-fit: cover;
+}
+
+.tcgb-suggestion-noimg {
+	aspect-ratio: 63 / 88;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: 3px;
+	box-shadow: none;
+}
+
 /* ============ Narrow layouts (mobile / side panes) ============ */
 
 @media (max-width: 600px) {
@@ -907,5 +1079,20 @@ select.tcgb-cond {
 
 	.tcgb-progress-fill {
 		transition: none;
+	}
+
+	.tcgb-card-tile {
+		transition: none;
+	}
+
+	/* Static ellipsis instead of the spinning ring */
+	.tcgb-search-modal.tcgb-searching .prompt-input-container::after {
+		content: '…';
+		width: auto;
+		height: auto;
+		margin-top: -0.6em;
+		border: none;
+		animation: none;
+		color: var(--text-muted);
 	}
 }
