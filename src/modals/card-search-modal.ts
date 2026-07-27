@@ -106,9 +106,20 @@ export class CardSearchModal extends SuggestModal<CardData> {
 	renderSuggestion(card: CardData, el: HTMLElement): void {
 		el.addClass('tcgb-suggestion')
 		if (card.imageSmall) {
-			el.createEl('img', {
+			const img = el.createEl('img', {
 				cls: 'tcgb-suggestion-image',
 				attr: { src: card.imageSmall, loading: 'lazy', alt: card.name },
+			})
+			// The TCGdex CDN serves variants inconsistently at times — fall back
+			// low → high before giving up, and log the exact failing URL.
+			img.addEventListener('error', () => {
+				if (!img.dataset.fallback && card.imageLarge && card.imageLarge !== img.src) {
+					img.dataset.fallback = '1'
+					img.src = card.imageLarge
+					return
+				}
+				console.error(`[TCG Binder] card image failed to load: ${img.src}`)
+				img.replaceWith(createDiv({ cls: 'tcgb-suggestion-image tcgb-suggestion-noimg' }))
 			})
 		} else {
 			// Placeholder keeps grid tiles aligned when a card has no scan.

@@ -68,8 +68,12 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 - [x] CSS responsivo para larguras estreitas (≤600px: filtros empilhados, tiles fluidos, tabela compacta)
 - [ ] Screenshots/GIFs (lista do que capturar em `docs/assets/README.md` — captura manual pendente)
 - [ ] Teste mobile em device real (selects nativos devem funcionar; risco conhecido: foco em input dentro de view-content esconde conteúdo no mobile)
-- [ ] Repositório GitHub + primeiro commit + release inicial (`release.mjs`)
-- [ ] Submissão à community store (PR em obsidianmd/obsidian-releases) — **adiada por decisão do usuário**
+- [x] Repositório GitHub (`bgarciamoura/obsidian-tcg-binder`) + releases 1.0.0–1.2.0 via `release.mjs`
+- [x] **Submissão à community store: ACEITA** — o plugin está listado e instalável desde 2026-07-27 (fluxo automatizado de scan; correções exigidas: escopo de vault, `!important`, settings declarativas)
+
+## 🚀 Lançado
+
+O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
 
 ## Modelo de dados (proposta — validar na Fase 1)
 

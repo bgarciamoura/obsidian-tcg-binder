@@ -20,6 +20,10 @@ Plugin do Obsidian para controle de **coleções, decks e cartas de Pokémon TCG
 
 `git@github.com:bgarciamoura/obsidian-tcg-binder.git` (renomeado de `obsidian-tcg-builder` em 2026-07-23; o GitHub mantém redirect). Nunca fazer push sem autorização explícita do usuário.
 
+## 🚀 PUBLICADO NA COMMUNITY STORE (2026-07-27)
+
+O plugin está listado na store oficial (id `tcg-binder`) e instalável via Browse. Todo release novo (`node release.mjs`) chega automaticamente aos usuários — **tratar `main` com rigor de produção**: nada de release sem build+testes+lint verdes e validação manual no vault de teste.
+
 ## Estado do projeto
 
 Scaffold pronto e validado (`npm run build`, `npm run lint` e `npm run test` passando). A arquitetura abaixo foi extraída do plugin de referência `../obsidian-notion-bases-plugin` (plugin publicado e maduro do mesmo autor) e deve ser seguida aqui.

@@ -51,11 +51,9 @@ Every collection, deck and card is a regular note with frontmatter. Your data st
 
 ## Installation
 
-Not yet in the community plugin store. Until then:
+**From the community store** (recommended): Settings → Community plugins → Browse → search for **TCG Binder** → Install & Enable.
 
-1. Download `main.js`, `manifest.json` and `styles.css` from the latest release
-2. Copy them to `<your vault>/.obsidian/plugins/tcg-binder/`
-3. Enable **TCG Binder** in Settings → Community plugins
+Manual alternative: download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/bgarciamoura/obsidian-tcg-binder/releases/latest) into `<your vault>/.obsidian/plugins/tcg-binder/` and enable it in Settings → Community plugins.
 
 A demo vault with sample data is available in [`demo-vault/`](demo-vault/).
 
