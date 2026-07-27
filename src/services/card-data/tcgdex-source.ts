@@ -1,6 +1,7 @@
 import type { CardData, CardDataSource, CardSearchQuery, SetInfo } from './card-data-source'
 import { requestJson } from './http'
 import { stripLeadingZeros } from '../../domain/card-list'
+import { matchesAllTokens, searchAnchor } from '../../domain/text-match'
 
 const REST_ROOT = 'https://api.tcgdex.net/v2'
 
@@ -109,6 +110,7 @@ export class TcgdexSource implements CardDataSource {
 				const seen = new Set(cards.map((card) => card.id))
 				cards = [...cards, ...english.filter((card) => !seen.has(card.id))]
 			}
+			cards = this.sortByReleaseDesc(cards).slice(0, 60)
 		}
 
 		this.searchCache.set(cacheKey, { at: Date.now(), cards })
@@ -138,14 +140,33 @@ export class TcgdexSource implements CardDataSource {
 		}
 	}
 
+	/**
+	 * Anchor + token search: the API's `like:` is an exact substring match,
+	 * so multi-word queries hit the API with the most selective token and the
+	 * remaining tokens are matched client-side (accent-insensitive). Lets
+	 * "Rocky F Energy" find "Rocky Fighting Energy".
+	 */
 	private async nameSearch(query: CardSearchQuery, lang: TcgdexLanguage): Promise<CardData[]> {
+		const raw = (query.name ?? '').trim()
+		const anchor = searchAnchor(raw)
+		if (!anchor) return []
+
 		const params = new URLSearchParams()
-		params.set('name', `like:${query.name ?? ''}`)
+		params.set('name', `like:${anchor}`)
 		params.set('pagination:page', String(query.page ?? 1))
-		params.set('pagination:itemsPerPage', String(query.pageSize ?? 30))
+		params.set('pagination:itemsPerPage', String(query.pageSize ?? 100))
 		const body = await requestJson(`${this.base(lang)}/cards?${params.toString()}`)
-		const resumes = Array.isArray(body) ? (body as TdxResume[]) : []
+		let resumes = Array.isArray(body) ? (body as TdxResume[]) : []
+		if (anchor !== raw) {
+			resumes = resumes.filter((resume) => matchesAllTokens(resume.name, raw))
+		}
 		return resumes.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
+	}
+
+	/** Newest printings first — the recent set is almost always the wanted one. */
+	private sortByReleaseDesc(cards: CardData[]): CardData[] {
+		const dateOf = (setId: string) => this.sets?.find((s) => s.id === setId)?.releaseDate ?? ''
+		return [...cards].sort((a, b) => dateOf(b.setId).localeCompare(dateOf(a.setId)))
 	}
 
 	/**
