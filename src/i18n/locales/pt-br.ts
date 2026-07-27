@@ -112,6 +112,7 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'set.cost': '{missing} faltando · {cost}',
 	'settings.root-folder.name': 'Pasta do fichário',
 	'settings.root-folder.desc': 'Pasta do vault onde coleções e decks são guardados.',
+	'settings.root-folder.required': 'A pasta não pode ser vazia',
 	'settings.api-key.name': 'Chave da API Pokémon TCG',
 	'settings.api-key.desc': 'Chave opcional do pokemontcg.io — aumenta o limite de requisições.',
 	'root.collections': 'Coleções',

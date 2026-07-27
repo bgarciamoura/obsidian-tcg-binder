@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
+import type { SettingDefinitionItem } from 'obsidian'
 import { t } from './i18n'
 import { TCGDEX_LANGUAGES } from './services/card-data/tcgdex-source'
 import type { TcgdexLanguage } from './services/card-data/tcgdex-source'
@@ -56,6 +57,76 @@ export class TcgBinderSettingTab extends PluginSettingTab {
 		super(app, plugin)
 	}
 
+	/**
+	 * Declarative settings (Obsidian 1.13+): renders the tab and feeds the
+	 * settings search. display() below stays as the pre-1.13 fallback — keep
+	 * both in sync when settings change.
+	 */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: t('settings.root-folder.name'),
+				desc: t('settings.root-folder.desc'),
+				control: {
+					type: 'folder',
+					key: 'rootFolder',
+					defaultValue: DEFAULT_SETTINGS.rootFolder,
+					placeholder: DEFAULT_SETTINGS.rootFolder,
+					validate: (value) => (value.trim().length === 0 ? t('settings.root-folder.required') : undefined),
+				},
+			},
+			{
+				name: t('settings.view-mode.name'),
+				desc: t('settings.view-mode.desc'),
+				control: {
+					type: 'dropdown',
+					key: 'defaultViewMode',
+					defaultValue: DEFAULT_SETTINGS.defaultViewMode,
+					options: { list: t('view-mode.list'), grid: t('view-mode.grid') },
+				},
+			},
+			{
+				name: t('settings.card-language.name'),
+				desc: t('settings.card-language.desc'),
+				control: {
+					type: 'dropdown',
+					key: 'cardLanguage',
+					defaultValue: DEFAULT_SETTINGS.cardLanguage,
+					options: Object.fromEntries(TCGDEX_LANGUAGES.map((lang) => [lang, LANGUAGE_LABELS[lang]])),
+				},
+			},
+			{
+				name: t('settings.data-source.name'),
+				desc: t('settings.data-source.desc'),
+				control: {
+					type: 'dropdown',
+					key: 'dataSource',
+					defaultValue: DEFAULT_SETTINGS.dataSource,
+					options: { tcgdex: t('source.tcgdex'), 'pokemontcg-io': t('source.pokemontcg-io') },
+				},
+			},
+			{
+				name: t('settings.api-key.name'),
+				desc: t('settings.api-key.desc'),
+				control: { type: 'text', key: 'pokemonTcgApiKey' },
+			},
+		]
+	}
+
+	getControlValue(key: string): unknown {
+		return this.plugin.settings[key as keyof TcgBinderSettings]
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const settings = this.plugin.settings as unknown as Record<string, unknown>
+		settings[key] =
+			key === 'rootFolder' && typeof value === 'string'
+				? value.trim() || DEFAULT_SETTINGS.rootFolder
+				: value
+		await this.plugin.saveSettings()
+	}
+
+	/** Imperative fallback for Obsidian < 1.13 — not called when definitions render. */
 	display(): void {
 		const { containerEl } = this
 		containerEl.empty()

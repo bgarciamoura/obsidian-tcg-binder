@@ -111,6 +111,7 @@ export const en = {
 	'set.cost': '{missing} missing · {cost}',
 	'settings.root-folder.name': 'Binder folder',
 	'settings.root-folder.desc': 'Vault folder where collections and decks are stored.',
+	'settings.root-folder.required': 'Folder cannot be empty',
 	'settings.api-key.name': 'Pokémon TCG API key',
 	'settings.api-key.desc': 'Optional pokemontcg.io key — raises the request rate limit.',
 	'root.collections': 'Collections',
