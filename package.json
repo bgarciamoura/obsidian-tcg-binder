@@ -1,6 +1,6 @@
 {
 	"name": "tcg-binder",
-	"version": "1.2.2",
+	"version": "1.2.3",
 	"description": "Track your Pokémon TCG collection, build decks and browse cards inside your vault.",
 	"type": "module",
 	"main": "main.js",
