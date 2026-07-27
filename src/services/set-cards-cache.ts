@@ -27,7 +27,7 @@ export class SetCardsCache {
 	/** All cards of a set. `force` refetches (used by price updates). */
 	async getSetCards(setId: string, force = false): Promise<CardData[]> {
 		const source = this.sourceRef()
-		const memoryKey = `${source.id}:${setId}`
+		const memoryKey = `${this.sourceKey()}:${setId}`
 		if (!force) {
 			const inMemory = this.memory.get(memoryKey)
 			if (inMemory) return inMemory
@@ -58,9 +58,16 @@ export class SetCardsCache {
 		return cards.find((card) => stripLeadingZeros(card.number).toLowerCase() === wanted)
 	}
 
+	/** Source id plus its qualifier (e.g. card language) — the full cache axis. */
+	private sourceKey(): string {
+		const source = this.sourceRef()
+		return source.cacheQualifier ? `${source.id}-${source.cacheQualifier}` : source.id
+	}
+
 	private cachePath(setId: string): string {
-		// Card ids/set ids are source-specific — never share cache files across sources.
-		return normalizePath(`${this.cacheDir()}/set-cards-${this.sourceRef().id}-${setId}.json`)
+		// Card ids are source-specific and names are language-specific —
+		// never share cache files across either axis.
+		return normalizePath(`${this.cacheDir()}/set-cards-${this.sourceKey()}-${setId}.json`)
 	}
 
 	private async readCache(setId: string): Promise<SetCardsFile | null> {

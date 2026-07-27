@@ -44,7 +44,7 @@ export default class TcgBinderPlugin extends Plugin {
 		this.cardNotes = new CardNotes(this.app, () => this.settings.rootFolder)
 		this.collections = new CollectionStore(this.app)
 		this.decks = new DeckStore(this.app)
-		this.tcgdexSource = new TcgdexSource()
+		this.tcgdexSource = new TcgdexSource(() => this.settings.cardLanguage)
 		this.pokemonIoSource = new PokemonTcgSource(() => this.settings.pokemonTcgApiKey)
 		this.setCatalog = new SetCatalog(
 			this.app,

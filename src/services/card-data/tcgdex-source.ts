@@ -2,7 +2,11 @@ import type { CardData, CardDataSource, CardSearchQuery, SetInfo } from './card-
 import { requestJson } from './http'
 import { stripLeadingZeros } from '../../domain/card-list'
 
-const REST_BASE = 'https://api.tcgdex.net/v2/en'
+const REST_ROOT = 'https://api.tcgdex.net/v2'
+
+/** Locales verified to exist on the TCGdex REST API. */
+export const TCGDEX_LANGUAGES = ['en', 'pt', 'es', 'fr', 'de', 'it', 'ja'] as const
+export type TcgdexLanguage = (typeof TCGDEX_LANGUAGES)[number]
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000
 const SEARCH_CACHE_MAX = 50
 const HYDRATE_CONCURRENCY = 8
@@ -43,11 +47,16 @@ interface TdxSetDetail {
 }
 
 /**
- * TCGdex adapter — free, no API key, no published rate limit. GraphQL is
- * used only for the set catalog (the REST list omits the TCG Live codes,
- * exposed in GraphQL as the legacy `tcgOnline` field); everything else is
- * REST. Search returns partial CardData (no price/legality — the resume
- * endpoints don't carry them); callers hydrate via getCard before persisting.
+ * TCGdex adapter — free, no API key, no published rate limit.
+ *
+ * Language model: the SET CATALOG is always English (only `en` carries the
+ * TCG Live `abbreviation` codes, and it covers every set), while card names,
+ * name search and card data use the configured language with per-request
+ * fallback to English wherever the locale has gaps. Card/set ids are
+ * identical across locales, so switching language never breaks references.
+ *
+ * Search returns partial CardData (no price/legality — the resume endpoints
+ * don't carry them); callers hydrate via getCard before persisting.
  */
 export class TcgdexSource implements CardDataSource {
 	readonly game = 'pokemon' as const
@@ -56,8 +65,20 @@ export class TcgdexSource implements CardDataSource {
 	private sets: SetInfo[] | null = null
 	private readonly searchCache = new Map<string, { at: number; cards: CardData[] }>()
 
+	constructor(private readonly getLanguage: () => TcgdexLanguage) {}
+
+	/** Segments SetCardsCache entries per language. */
+	get cacheQualifier(): string {
+		return this.getLanguage()
+	}
+
+	private base(lang?: TcgdexLanguage): string {
+		return `${REST_ROOT}/${lang ?? this.getLanguage()}`
+	}
+
 	async searchCards(query: CardSearchQuery): Promise<CardData[]> {
-		const cacheKey = JSON.stringify(query)
+		const lang = this.getLanguage()
+		const cacheKey = `${lang}:${JSON.stringify(query)}`
 		const cached = this.searchCache.get(cacheKey)
 		if (cached && Date.now() - cached.at < SEARCH_CACHE_TTL_MS) return cached.cards
 
@@ -79,14 +100,15 @@ export class TcgdexSource implements CardDataSource {
 				cards = cards.filter((card) => card.name.toLowerCase().includes(name))
 			}
 		} else {
+			// Name search is effectively language-independent: it queries the
+			// configured language AND English, merged by card id.
 			await this.ensureSets()
-			const params = new URLSearchParams()
-			params.set('name', `like:${query.name ?? ''}`)
-			params.set('pagination:page', String(query.page ?? 1))
-			params.set('pagination:itemsPerPage', String(query.pageSize ?? 30))
-			const body = await requestJson(`${REST_BASE}/cards?${params.toString()}`)
-			const resumes = Array.isArray(body) ? (body as TdxResume[]) : []
-			cards = resumes.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
+			cards = await this.nameSearch(query, lang)
+			if (lang !== 'en') {
+				const english = await this.nameSearch(query, 'en').catch(() => [] as CardData[])
+				const seen = new Set(cards.map((card) => card.id))
+				cards = [...cards, ...english.filter((card) => !seen.has(card.id))]
+			}
 		}
 
 		this.searchCache.set(cacheKey, { at: Date.now(), cards })
@@ -100,12 +122,30 @@ export class TcgdexSource implements CardDataSource {
 	}
 
 	async getCard(id: string): Promise<CardData | null> {
+		const lang = this.getLanguage()
+		const localized = await this.getCardIn(id, lang)
+		if (localized) return localized
+		// Locale gap (card not translated/covered) — fall back to English.
+		return lang !== 'en' ? this.getCardIn(id, 'en') : null
+	}
+
+	private async getCardIn(id: string, lang: TcgdexLanguage): Promise<CardData | null> {
 		try {
-			const body = await requestJson(`${REST_BASE}/cards/${encodeURIComponent(id)}`)
+			const body = await requestJson(`${this.base(lang)}/cards/${encodeURIComponent(id)}`)
 			return this.toCardData(body as TdxCard)
 		} catch {
 			return null
 		}
+	}
+
+	private async nameSearch(query: CardSearchQuery, lang: TcgdexLanguage): Promise<CardData[]> {
+		const params = new URLSearchParams()
+		params.set('name', `like:${query.name ?? ''}`)
+		params.set('pagination:page', String(query.page ?? 1))
+		params.set('pagination:itemsPerPage', String(query.pageSize ?? 30))
+		const body = await requestJson(`${this.base(lang)}/cards?${params.toString()}`)
+		const resumes = Array.isArray(body) ? (body as TdxResume[]) : []
+		return resumes.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
 	}
 
 	/**
@@ -115,12 +155,13 @@ export class TcgdexSource implements CardDataSource {
 	 * catalog refresh — SetCatalog keeps the result on disk for a week.
 	 */
 	async getSets(): Promise<SetInfo[]> {
-		const body = await requestJson(`${REST_BASE}/sets`)
+		// Always English: only `en` carries every set and the TCG Live codes.
+		const body = await requestJson(`${this.base('en')}/sets`)
 		const resumes = Array.isArray(body) ? (body as TdxSetResume[]) : []
 		const details = await mapConcurrent(resumes, HYDRATE_CONCURRENCY, async (resume) => {
 			try {
 				return (await requestJson(
-					`${REST_BASE}/sets/${encodeURIComponent(resume.id)}`,
+					`${this.base('en')}/sets/${encodeURIComponent(resume.id)}`,
 				)) as TdxSetDetail
 			} catch (error) {
 				console.error(`[TCG Binder] failed to hydrate set ${resume.id}`, error)
@@ -154,7 +195,16 @@ export class TcgdexSource implements CardDataSource {
 	}
 
 	private async getSetResumes(setId: string): Promise<TdxResume[]> {
-		const body = await requestJson(`${REST_BASE}/sets/${encodeURIComponent(setId)}`)
+		const lang = this.getLanguage()
+		try {
+			const body = await requestJson(`${this.base(lang)}/sets/${encodeURIComponent(setId)}`)
+			const cards = (body as { cards?: TdxResume[] }).cards
+			if (Array.isArray(cards) && cards.length > 0) return cards
+		} catch {
+			// Set not covered by this locale — fall through to English.
+		}
+		if (lang === 'en') return []
+		const body = await requestJson(`${this.base('en')}/sets/${encodeURIComponent(setId)}`)
 		const cards = (body as { cards?: TdxResume[] }).cards
 		return Array.isArray(cards) ? cards : []
 	}

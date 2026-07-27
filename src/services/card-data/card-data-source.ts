@@ -60,6 +60,11 @@ export interface CardDataSource {
 	readonly game: GameId
 	/** Stable source identifier ("tcgdex", "pokemontcg-io") — card ids are only meaningful within one source. */
 	readonly id: string
+	/**
+	 * Extra cache-segmentation key for state that varies beyond the source id
+	 * (e.g. TCGdex card language). Undefined when the source has no such axis.
+	 */
+	readonly cacheQualifier?: string
 	searchCards(query: CardSearchQuery): Promise<CardData[]>
 	getCard(id: string): Promise<CardData | null>
 	getSets(): Promise<SetInfo[]>

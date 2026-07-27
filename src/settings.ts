@@ -1,6 +1,18 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
 import { t } from './i18n'
+import { TCGDEX_LANGUAGES } from './services/card-data/tcgdex-source'
+import type { TcgdexLanguage } from './services/card-data/tcgdex-source'
 import type TcgBinderPlugin from './main'
+
+const LANGUAGE_LABELS: Record<TcgdexLanguage, string> = {
+	en: 'English',
+	pt: 'Português',
+	es: 'Español',
+	fr: 'Français',
+	de: 'Deutsch',
+	it: 'Italiano',
+	ja: '日本語',
+}
 
 export type CardDataSourceId = 'tcgdex' | 'pokemontcg-io'
 
@@ -13,6 +25,12 @@ export interface TcgBinderSettings {
 	 * source-specific — switching affects new lookups, not existing notes.
 	 */
 	dataSource: CardDataSourceId
+	/**
+	 * TCGdex card language: names, search and new card notes. The set catalog
+	 * stays English (codes/coverage), and lookups fall back to English where
+	 * the locale has gaps. Ids match across languages.
+	 */
+	cardLanguage: TcgdexLanguage
 	/** Optional pokemontcg.io key — only raises rate limits. */
 	pokemonTcgApiKey: string
 }
@@ -20,6 +38,7 @@ export interface TcgBinderSettings {
 export const DEFAULT_SETTINGS: TcgBinderSettings = {
 	rootFolder: 'TCG Binder',
 	dataSource: 'tcgdex',
+	cardLanguage: 'en',
 	pokemonTcgApiKey: '',
 }
 
@@ -54,6 +73,22 @@ export class TcgBinderSettingTab extends PluginSettingTab {
 				dd.setValue(this.plugin.settings.dataSource)
 				dd.onChange(async (value) => {
 					this.plugin.settings.dataSource = value === 'pokemontcg-io' ? 'pokemontcg-io' : 'tcgdex'
+					await this.plugin.saveSettings()
+				})
+			})
+
+		new Setting(containerEl)
+			.setName(t('settings.card-language.name'))
+			.setDesc(t('settings.card-language.desc'))
+			.addDropdown((dd) => {
+				for (const lang of TCGDEX_LANGUAGES) {
+					dd.addOption(lang, LANGUAGE_LABELS[lang])
+				}
+				dd.setValue(this.plugin.settings.cardLanguage)
+				dd.onChange(async (value) => {
+					this.plugin.settings.cardLanguage = TCGDEX_LANGUAGES.includes(value as TcgdexLanguage)
+						? (value as TcgdexLanguage)
+						: 'en'
 					await this.plugin.saveSettings()
 				})
 			})

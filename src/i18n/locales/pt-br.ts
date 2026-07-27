@@ -8,6 +8,8 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'search.empty': 'Nenhuma carta encontrada',
 	'search.error': 'Falha na busca de cartas — veja o console de desenvolvedor para detalhes',
 	'search.rate-limited': 'Limite de requisições da API atingido — mude a base de cartas para TCGdex nas configurações, ou aguarde um minuto',
+	'settings.card-language.name': 'Idioma das cartas',
+	'settings.card-language.desc': 'Idioma para nomes, busca e novas notas de carta (TCGdex). A busca por nome também encontra em inglês, e onde faltar tradução o inglês é usado como fallback. Notas existentes mantêm o idioma.',
 	'settings.data-source.name': 'Base de cartas',
 	'source.tcgdex': 'TCGdex',
 	'source.pokemontcg-io': 'pokemontcg.io',

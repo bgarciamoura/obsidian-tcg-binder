@@ -7,6 +7,8 @@ export const en = {
 	'search.empty': 'No cards found',
 	'search.error': 'Card search failed — see the developer console for details',
 	'search.rate-limited': 'Card API rate limit reached — switch the card database to TCGdex in the settings, or wait a minute',
+	'settings.card-language.name': 'Card language',
+	'settings.card-language.desc': 'Language for card names, search and new card notes (TCGdex). Name search also matches English, and lookups fall back to English where a translation is missing. Existing notes keep their language.',
 	'settings.data-source.name': 'Card database',
 	'source.tcgdex': 'TCGdex',
 	'source.pokemontcg-io': 'pokemontcg.io',
