@@ -4,6 +4,7 @@ import { useApp } from '../context'
 import { t } from '../i18n'
 import { useState } from 'react'
 import { validateDeck, validateDeckLegality } from '../domain/deck-rules'
+import { functionalKey } from '../domain/text-match'
 import type { ViewMode } from '../settings'
 import type { CardMeta } from '../services/card-notes'
 import type { DeckStoredEntry } from '../services/deck-store'
@@ -36,10 +37,13 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 	const format = plugin.decks.readFormat(file)
 	const [mode, setMode] = useState<ViewMode>(plugin.settings.defaultViewMode)
 
-	const rows = useMemo<Row[]>(() => {
-		const index = plugin.cardNotes.buildIndex()
-		return plugin.decks.readEntries(file).map((entry) => ({ ...entry, meta: index.get(entry.id) ?? null }))
-	}, [plugin, file, version])
+	const cardIndex = useMemo(() => plugin.cardNotes.buildIndex(), [plugin, version])
+
+	const rows = useMemo<Row[]>(
+		() =>
+			plugin.decks.readEntries(file).map((entry) => ({ ...entry, meta: cardIndex.get(entry.id) ?? null })),
+		[plugin, file, version, cardIndex],
+	)
 
 	const total = useMemo(() => rows.reduce((sum, row) => sum + row.qty, 0), [rows])
 
@@ -61,24 +65,45 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		[rows],
 	)
 
+	/**
+	 * Ownership is aggregated by card NAME across every collection: in the
+	 * game, any printing of the same name is functionally the same card, so
+	 * owning "Switch" from SVI satisfies a deck line for "Switch" from MEG.
+	 * Falls back to id matching for cards whose note lacks a resolvable name.
+	 */
 	const owned = useMemo(() => {
-		const map = new Map<string, number>()
+		const byName = new Map<string, number>()
+		const byId = new Map<string, number>()
 		for (const collection of plugin.store.listFiles('collection')) {
 			if (plugin.store.getRole(collection) === 'wishlist') continue
 			for (const entry of plugin.collections.readEntries(collection)) {
-				map.set(entry.id, (map.get(entry.id) ?? 0) + entry.qty)
+				byId.set(entry.id, (byId.get(entry.id) ?? 0) + entry.qty)
+				const meta = cardIndex.get(entry.id)
+				if (meta) {
+					const key = functionalKey(meta.nameEn, meta.name, entry.id)
+					byName.set(key, (byName.get(key) ?? 0) + entry.qty)
+				}
 			}
 		}
-		return map
-	}, [plugin, version])
+		return { byName, byId }
+	}, [plugin, version, cardIndex])
 
-	const missing = useMemo(
-		() =>
-			rows
-				.map((row) => ({ ...row, missingQty: Math.max(0, row.qty - (owned.get(row.id) ?? 0)) }))
-				.filter((row) => row.missingQty > 0),
-		[rows, owned],
-	)
+	const missing = useMemo(() => {
+		// Deck lines of the same name share one owned pool — aggregate first.
+		const neededByName = new Map<string, { qty: number; row: Row }>()
+		for (const row of rows) {
+			const key = functionalKey(row.meta?.nameEn ?? null, row.meta?.name ?? null, row.id)
+			const current = neededByName.get(key)
+			if (current) current.qty += row.qty
+			else neededByName.set(key, { qty: row.qty, row })
+		}
+		return [...neededByName.entries()]
+			.map(([key, { qty, row }]) => {
+				const available = owned.byName.get(key) ?? owned.byId.get(row.id) ?? 0
+				return { ...row, missingQty: Math.max(0, qty - available) }
+			})
+			.filter((row) => row.missingQty > 0)
+	}, [rows, owned])
 
 	const missingCost = useMemo(
 		() => missing.reduce((sum, row) => sum + row.missingQty * (row.meta?.priceMarket ?? 0), 0),

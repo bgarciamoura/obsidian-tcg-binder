@@ -65,6 +65,8 @@ export class TcgdexSource implements CardDataSource {
 
 	private sets: SetInfo[] | null = null
 	private readonly searchCache = new Map<string, { at: number; cards: CardData[] }>()
+	/** English names per set (localId → name) — the canonical identity source. */
+	private readonly enNames = new Map<string, Map<string, string>>()
 
 	constructor(private readonly getLanguage: () => TcgdexLanguage) {}
 
@@ -126,7 +128,13 @@ export class TcgdexSource implements CardDataSource {
 	async getCard(id: string): Promise<CardData | null> {
 		const lang = this.getLanguage()
 		const localized = await this.getCardIn(id, lang)
-		if (localized) return localized
+		if (localized) {
+			if (lang !== 'en' && !localized.nameEn) {
+				// One request per SET (memoized), not per card.
+				localized.nameEn = (await this.getCanonicalNames(localized.setId)).get(localized.number) ?? null
+			}
+			return localized
+		}
 		// Locale gap (card not translated/covered) — fall back to English.
 		return lang !== 'en' ? this.getCardIn(id, 'en') : null
 	}
@@ -134,10 +142,28 @@ export class TcgdexSource implements CardDataSource {
 	private async getCardIn(id: string, lang: TcgdexLanguage): Promise<CardData | null> {
 		try {
 			const body = await requestJson(`${this.base(lang)}/cards/${encodeURIComponent(id)}`)
-			return this.toCardData(body as TdxCard)
+			const card = this.toCardData(body as TdxCard)
+			if (lang === 'en') card.nameEn = card.name
+			return card
 		} catch {
 			return null
 		}
+	}
+
+	/** localId → English name for a set, memoized. Empty map on failure. */
+	async getCanonicalNames(setId: string): Promise<Map<string, string>> {
+		const cached = this.enNames.get(setId)
+		if (cached) return cached
+		const names = new Map<string, string>()
+		try {
+			const body = await requestJson(`${this.base('en')}/sets/${encodeURIComponent(setId)}`)
+			const cards = (body as { cards?: TdxResume[] }).cards ?? []
+			for (const resume of cards) names.set(stripLeadingZeros(resume.localId), resume.name)
+		} catch (error) {
+			console.error(`[TCG Binder] failed to fetch English names for set ${setId}`, error)
+		}
+		this.enNames.set(setId, names)
+		return names
 	}
 
 	/**
@@ -196,6 +222,7 @@ export class TcgdexSource implements CardDataSource {
 			series: details[i]?.serie?.name ?? '',
 			code: details[i]?.abbreviation?.official ?? null,
 			total: resume.cardCount?.total ?? resume.cardCount?.official ?? 0,
+			printedTotal: resume.cardCount?.official ?? resume.cardCount?.total ?? 0,
 			releaseDate: details[i]?.releaseDate ?? '',
 			symbolUrl: resume.symbol ?? null,
 		}))
@@ -268,6 +295,7 @@ export class TcgdexSource implements CardDataSource {
 			imageSmall: image ? `${image}/low.webp` : null,
 			imageLarge: image ? `${image}/high.webp` : null,
 			marketPrice: null,
+			nameEn: this.getLanguage() === 'en' ? resume.name : null,
 			legalities: [],
 			copyLimitExempt: false,
 		}
@@ -300,6 +328,7 @@ export class TcgdexSource implements CardDataSource {
 			imageSmall: image ? `${image}/low.webp` : null,
 			imageLarge: image ? `${image}/high.webp` : null,
 			marketPrice: this.extractMarketPrice(card),
+			nameEn: null,
 			legalities,
 			// TCGdex marks basic energies as energyType "Normal" (vs "Special").
 			copyLimitExempt:

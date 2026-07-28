@@ -10,6 +10,8 @@ export interface CardMeta {
 	file: TFile
 	cardId: string
 	name: string
+	/** Canonical English name when it differs from the localized `name`. */
+	nameEn: string | null
 	setId: string | null
 	setCode: string | null
 	setName: string | null
@@ -56,6 +58,7 @@ export class CardNotes {
 			file,
 			cardId,
 			name,
+			nameEn: stringOrNull(fm['name-en']),
 			setId: stringOrNull(fm['set-id']),
 			setCode: stringOrNull(fm['set-code']),
 			setName: stringOrNull(fm['set-name']),
@@ -117,6 +120,8 @@ export class CardNotes {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			fm[FRONTMATTER_TYPE_KEY] = 'card'
 			fm.name = card.name
+			// Canonical identity key — only stored when it adds information.
+			if (card.nameEn && card.nameEn !== card.name) fm['name-en'] = card.nameEn
 			fm.game = card.game
 			fm['card-id'] = card.id
 			fm['set-id'] = card.setId
@@ -151,6 +156,13 @@ export class CardNotes {
 			if (!frontmatter) return content
 			const head = frontmatter[0]
 			return `${head}![${cardName}](${image})\n${content.slice(head.length)}`
+		})
+	}
+
+	/** Stamps the canonical English name on a note that predates the field. */
+	async setNameEn(file: TFile, nameEn: string): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm['name-en'] = nameEn
 		})
 	}
 

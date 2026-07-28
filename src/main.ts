@@ -587,6 +587,7 @@ export default class TcgBinderPlugin extends Plugin {
 					qty: 0,
 					variant: 'normal' as const,
 					condition: 'NM' as const,
+					added: null,
 				})),
 			)
 			new Notice(t('notice.set-collection-created', { name: set.name, count: cards.length }))
@@ -639,6 +640,41 @@ export default class TcgBinderPlugin extends Plugin {
 			progress.hide()
 		}
 		new Notice(t('images.done', { updated, missing: missing.length - updated }))
+		await this.backfillCanonicalNames()
+	}
+
+	/** Stamps `name-en` on localized notes that predate the field — one request per set. */
+	private async backfillCanonicalNames(): Promise<void> {
+		const source = this.activeSource()
+		if (!source.getCanonicalNames) return
+		const pending = [...this.cardNotes.buildIndex().values()].filter(
+			(meta) => !meta.nameEn && meta.setId && meta.number,
+		)
+		if (pending.length === 0) return
+
+		const bySet = new Map<string, typeof pending>()
+		for (const meta of pending) {
+			const list = bySet.get(meta.setId as string) ?? []
+			list.push(meta)
+			bySet.set(meta.setId as string, list)
+		}
+
+		let stamped = 0
+		for (const [setId, metas] of bySet) {
+			try {
+				const names = await source.getCanonicalNames(setId)
+				for (const meta of metas) {
+					const nameEn = names.get(meta.number as string)
+					if (nameEn && nameEn !== meta.name) {
+						await this.cardNotes.setNameEn(meta.file, nameEn)
+						stamped++
+					}
+				}
+			} catch (error) {
+				console.error(`[TCG Binder] canonical-name backfill failed for set ${setId}`, error)
+			}
+		}
+		if (stamped > 0) console.debug(`[TCG Binder] stamped name-en on ${stamped} notes`)
 	}
 
 	private async createWishlist(): Promise<void> {

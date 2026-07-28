@@ -6,10 +6,12 @@ import { CARD_CONDITIONS, CARD_VARIANTS } from '../types'
 import type { CardCondition, CardVariant } from '../types'
 import type { ViewMode } from '../settings'
 import { computeCollectionStats } from '../domain/collection-stats'
+import { functionalKey } from '../domain/text-match'
 import { computeSetProgress } from '../domain/set-progress'
 import type { SetInfo } from '../services/card-data/card-data-source'
 import type { CardMeta } from '../services/card-notes'
 import type { StoredEntry } from '../services/collection-store'
+import { FilePickerModal } from '../modals/file-picker-modal'
 import type TcgBinderPlugin from '../main'
 
 interface CollectionViewProps {
@@ -36,6 +38,8 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 	const [setFilter, setSetFilter] = useState(ALL)
 	const [variantFilter, setVariantFilter] = useState(ALL)
 	const [conditionFilter, setConditionFilter] = useState(ALL)
+	const [dateFilter, setDateFilter] = useState(ALL)
+	const [sortMode, setSortMode] = useState<'default' | 'newest' | 'oldest'>('default')
 	const [search, setSearch] = useState('')
 
 	useEffect(() => {
@@ -57,14 +61,29 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 
 	const filtered = useMemo(() => {
 		const query = search.trim().toLowerCase()
-		return rows.filter((row) => {
+		const cutoff =
+			dateFilter === ALL
+				? null
+				: new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000)
+						.toISOString()
+						.slice(0, 10)
+		const result = rows.filter((row) => {
 			if (setFilter !== ALL && row.meta?.setId !== setFilter) return false
 			if (variantFilter !== ALL && row.variant !== variantFilter) return false
 			if (conditionFilter !== ALL && row.condition !== conditionFilter) return false
+			// Undated rows (checklist lines, pre-feature entries) fail period filters.
+			if (cutoff && (!row.added || row.added < cutoff)) return false
 			if (query && !(row.meta?.name ?? row.id).toLowerCase().includes(query)) return false
 			return true
 		})
-	}, [rows, setFilter, variantFilter, conditionFilter, search])
+		if (sortMode === 'default') return result
+		return [...result].sort((a, b) => {
+			if (!a.added && !b.added) return 0
+			if (!a.added) return 1 // undated rows always sink to the end
+			if (!b.added) return -1
+			return sortMode === 'newest' ? b.added.localeCompare(a.added) : a.added.localeCompare(b.added)
+		})
+	}, [rows, setFilter, variantFilter, conditionFilter, dateFilter, sortMode, search])
 
 	const stats = useMemo(
 		() =>
@@ -102,10 +121,14 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 			.sort((a, b) => b.percent - a.percent)
 	}, [rows, sets])
 
-	/** Total copies per card id across variants/conditions — 4+ is a playset. */
-	const copiesById = useMemo(() => {
+	/** Total copies per functional card (name across printings) — 4+ is a playset. */
+	const keyOf = (row: Row) => functionalKey(row.meta?.nameEn ?? null, row.meta?.name ?? null, row.id)
+	const copiesByKey = useMemo(() => {
 		const map = new Map<string, number>()
-		for (const row of rows) map.set(row.id, (map.get(row.id) ?? 0) + row.qty)
+		for (const row of rows) {
+			const key = functionalKey(row.meta?.nameEn ?? null, row.meta?.name ?? null, row.id)
+			map.set(key, (map.get(key) ?? 0) + row.qty)
+		}
 		return map
 	}, [rows])
 
@@ -152,6 +175,24 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 
 	const openCard = (row: Row) => {
 		if (row.meta) void app.workspace.getLeaf(true).openFile(row.meta.file)
+	}
+
+	/** Moves the whole line to another collection, chosen via fuzzy picker. */
+	const moveToCollection = (row: Row) => {
+		const targets = plugin.store.listFiles('collection').filter((f) => f.path !== file.path)
+		if (targets.length === 0) {
+			new Notice(t('notice.no-other-collection'))
+			return
+		}
+		new FilePickerModal(app, targets, t('picker.collection'), (target) => {
+			void plugin.collections
+				.moveEntry(file, target, { id: row.id, variant: row.variant, condition: row.condition })
+				.then(() => {
+					new Notice(
+						t('notice.card-moved', { name: row.meta?.name ?? row.id, collection: target.basename }),
+					)
+				})
+		}).open()
 	}
 
 	/** Fetches the full set once (cached) and prices the cards not yet owned. */
@@ -235,6 +276,25 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 						</option>
 					))}
 				</select>
+				<select
+					value={dateFilter}
+					aria-label={t('view.filter.added')}
+					onChange={(e) => setDateFilter(e.target.value)}
+				>
+					<option value={ALL}>{t('view.filter.any-date')}</option>
+					<option value="7">{t('view.filter.last-days-7')}</option>
+					<option value="30">{t('view.filter.last-days-30')}</option>
+					<option value="90">{t('view.filter.last-days-90')}</option>
+				</select>
+				<select
+					value={sortMode}
+					aria-label={t('view.sort')}
+					onChange={(e) => setSortMode(e.target.value as 'default' | 'newest' | 'oldest')}
+				>
+					<option value="default">{t('view.sort.default')}</option>
+					<option value="newest">{t('view.sort.newest')}</option>
+					<option value="oldest">{t('view.sort.oldest')}</option>
+				</select>
 				<button
 					className="tcgb-btn tcgb-mode-toggle"
 					title={t('view.toggle-mode')}
@@ -252,12 +312,27 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 					{filtered.map((row) => (
 						<div key={`${row.id}-${row.variant}-${row.condition}`} className="tcgb-card-tile">
 							<div className="tcgb-tile-imgwrap" onClick={() => openCard(row)}>
+								<button
+									className="tcgb-tile-remove"
+									aria-label={t('view.remove')}
+									title={t('view.remove')}
+									onClick={(e) => {
+										e.stopPropagation()
+										void plugin.collections.removeEntry(file, {
+											id: row.id,
+											variant: row.variant,
+											condition: row.condition,
+										})
+									}}
+								>
+									×
+								</button>
 								{row.meta?.image ? (
 									<img className="tcgb-tile-img" loading="lazy" src={row.meta.image} alt="" />
 								) : (
 									<div className="tcgb-tile-img tcgb-tile-img-empty" />
 								)}
-								{(copiesById.get(row.id) ?? 0) >= 4 && (
+								{(copiesByKey.get(keyOf(row)) ?? 0) >= 4 && (
 									<span className="tcgb-playset tcgb-tile-playset" title={t('view.playset-tooltip')}>
 										4×
 									</span>
@@ -300,6 +375,7 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 								<th className="tcgb-cell-center">{t('view.col.playset')}</th>
 								<th className="tcgb-cell-num">{t('view.col.qty')}</th>
 								<th className="tcgb-cell-num">{t('view.col.price')}</th>
+								<th className="tcgb-cell-num">{t('view.col.added')}</th>
 								<th />
 							</tr>
 						</thead>
@@ -351,7 +427,7 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 										</select>
 									</td>
 									<td className="tcgb-cell-center">
-										{(copiesById.get(row.id) ?? 0) >= 4 && (
+										{(copiesByKey.get(keyOf(row)) ?? 0) >= 4 && (
 											<span className="tcgb-playset" title={t('view.playset-tooltip')}>
 												<svg
 													className="tcgb-playset-icon"
@@ -383,7 +459,16 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 											? `$${(row.qty * row.meta.priceMarket).toFixed(2)}`
 											: '—'}
 									</td>
+									<td className="tcgb-cell-num tcgb-cell-muted">{row.added ?? '—'}</td>
 									<td className="tcgb-cell-actions">
+										<button
+											className="tcgb-row-action"
+											aria-label={t('view.move')}
+											title={t('view.move')}
+											onClick={() => moveToCollection(row)}
+										>
+											→
+										</button>
 										<button
 											className="tcgb-row-action"
 											aria-label={t('view.add-variant')}

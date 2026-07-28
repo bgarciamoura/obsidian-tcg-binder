@@ -1,5 +1,6 @@
 import { App, Notice, SuggestModal } from 'obsidian'
 import { parseCardQuery } from '../domain/card-query'
+import type { ParsedCardQuery } from '../domain/card-query'
 import type { CardData, CardDataSource, CardSearchQuery } from '../services/card-data/card-data-source'
 import { RateLimitError } from '../services/card-data/card-data-source'
 import type { SetCatalog } from '../services/set-catalog'
@@ -86,9 +87,12 @@ export class CardSearchModal extends SuggestModal<CardData> {
 
 		this.setLoading(true)
 		try {
-			const results = await this.source.searchCards(await this.buildQuery(trimmed))
+			const parsed = parseCardQuery(trimmed)
+			const results = await this.fetchResults(trimmed, parsed)
 			if (version !== this.searchVersion) return []
 			if (results.length > 0) return results
+			// "194/198" queries have no meaningful name fallback.
+			if (parsed.printedTotal) return []
 			// A set-code-shaped query with no hits ("Iono 185") — retry as a name.
 			const fallback = await this.source.searchCards({ name: trimmed })
 			return version === this.searchVersion ? fallback : []
@@ -135,8 +139,28 @@ export class CardSearchModal extends SuggestModal<CardData> {
 		this.onChoose(card)
 	}
 
-	private async buildQuery(query: string): Promise<CardSearchQuery> {
-		const parsed = parseCardQuery(query)
+	/** Routes the parsed query, including printed "number/total" lookups. */
+	private async fetchResults(query: string, parsed: ParsedCardQuery): Promise<CardData[]> {
+		if (parsed.number && parsed.printedTotal) {
+			await this.catalog.load()
+			// The printed denominator identifies the set; ties search every match.
+			const sets = this.catalog
+				.findAllByPrintedTotal(parsed.printedTotal)
+				.sort((a, b) => b.releaseDate.localeCompare(a.releaseDate))
+				.slice(0, 6)
+			const perSet = await Promise.all(
+				sets.map((set) =>
+					this.source
+						.searchCards({ setId: set.id, number: parsed.number })
+						.catch(() => [] as CardData[]),
+				),
+			)
+			return perSet.flat()
+		}
+		return this.source.searchCards(await this.buildQuery(query, parsed))
+	}
+
+	private async buildQuery(query: string, parsed: ParsedCardQuery): Promise<CardSearchQuery> {
 		if (parsed.setCode) {
 			await this.catalog.load()
 			// "Iono 185" parses as a set code — only trust codes the catalog knows.

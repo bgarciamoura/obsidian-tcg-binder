@@ -24,6 +24,7 @@ interface ApiSet {
 	series: string
 	ptcgoCode?: string
 	total: number
+	printedTotal?: number
 	releaseDate: string
 	images?: { symbol?: string; logo?: string }
 }
@@ -94,6 +95,7 @@ export class PokemonTcgSource implements CardDataSource {
 			series: set.series,
 			code: set.ptcgoCode ?? null,
 			total: set.total,
+			printedTotal: set.printedTotal ?? set.total,
 			releaseDate: set.releaseDate,
 			symbolUrl: set.images?.symbol ?? null,
 		}))
@@ -133,6 +135,7 @@ export class PokemonTcgSource implements CardDataSource {
 			imageSmall: card.images?.small ?? null,
 			imageLarge: card.images?.large ?? card.images?.small ?? null,
 			marketPrice: this.extractMarketPrice(card),
+			nameEn: card.name, // English-only source — the name is already canonical
 			legalities: Object.entries(card.legalities ?? {})
 				.filter(([, status]) => status === 'Legal')
 				.map(([format]) => format.toLowerCase()),

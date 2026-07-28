@@ -65,13 +65,22 @@ export class SetCatalog {
 		)
 	}
 
+	/** All sets whose printed size matches a "194/198"-style denominator. */
+	findAllByPrintedTotal(printedTotal: number): SetInfo[] {
+		if (!this.sets) return []
+		return this.sets.filter((set) => set.printedTotal === printedTotal)
+	}
+
 	private async readCache(): Promise<SetCache | null> {
 		try {
 			const adapter = this.app.vault.adapter
 			const path = this.cacheFilePath()
 			if (!(await adapter.exists(path))) return null
 			const parsed = JSON.parse(await adapter.read(path)) as SetCache
-			return Array.isArray(parsed.sets) ? parsed : null
+			if (!Array.isArray(parsed.sets)) return null
+			// Schema check: caches written before printedTotal existed must refetch.
+			if (parsed.sets.length > 0 && typeof parsed.sets[0].printedTotal !== 'number') return null
+			return parsed
 		} catch {
 			return null // corrupted cache — refetch
 		}

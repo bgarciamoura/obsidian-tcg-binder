@@ -19,6 +19,15 @@ export function matchesAllTokens(name: string, query: string): boolean {
 		.every((token) => haystack.includes(normalizeForMatch(token)))
 }
 
+/**
+ * The functional-identity key of a card: canonical English name when known,
+ * localized name otherwise, printing id as the last resort. Two entries with
+ * the same key are the same card for game purposes (ownership, playsets).
+ */
+export function functionalKey(nameEn: string | null, name: string | null, id: string): string {
+	return normalizeForMatch(nameEn ?? name ?? id)
+}
+
 /** Generic TCG words that make terrible search anchors — thousands of hits. */
 const GENERIC_TOKENS = new Set([
 	'energy',

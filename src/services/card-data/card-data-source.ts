@@ -24,6 +24,8 @@ export interface CardData {
 	imageLarge: string | null
 	/** Market price in USD (TCGplayer) at fetch time, if available. */
 	marketPrice: number | null
+	/** Canonical English name — the cross-language, cross-printing identity key. */
+	nameEn: string | null
 	/** Formats where the card is currently legal, e.g. ["standard", "expanded"]. */
 	legalities: string[]
 	/** Exempt from deck copy limits (e.g. Pokémon basic energy). */
@@ -39,6 +41,8 @@ export interface SetInfo {
 	/** Decklist abbreviation (PTCGO code), e.g. "SVI". Not every set has one. */
 	code: string | null
 	total: number
+	/** The printed denominator on cards ("…/198") — excludes secret rares. */
+	printedTotal: number
 	releaseDate: string
 	symbolUrl: string | null
 }
@@ -70,4 +74,9 @@ export interface CardDataSource {
 	getSets(): Promise<SetInfo[]>
 	/** Every card of a set, with prices — powers CSV import and cost-to-completion. */
 	getSetCards(setId: string): Promise<CardData[]>
+	/**
+	 * localId → canonical (English) name for a set. Sources whose names are
+	 * already canonical may omit this.
+	 */
+	getCanonicalNames?(setId: string): Promise<Map<string, string>>
 }

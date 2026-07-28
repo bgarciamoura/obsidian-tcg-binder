@@ -4,6 +4,8 @@ export interface ParsedCardQuery {
 	name?: string
 	setCode?: string
 	number?: string
+	/** The denominator of a printed "194/198" query — identifies the set by its printed size. */
+	printedTotal?: number
 }
 
 /**
@@ -23,9 +25,12 @@ export function parseCardQuery(raw: string): ParsedCardQuery {
 		return { setCode: setAndNumber[1].toUpperCase(), number: stripLeadingZeros(setAndNumber[2]) }
 	}
 
-	const numberOnly = /^(\d{1,4})(?:\/\d{1,4})?$/.exec(query)
+	const numberOnly = /^(\d{1,4})(?:\/(\d{1,4}))?$/.exec(query)
 	if (numberOnly) {
-		return { number: stripLeadingZeros(numberOnly[1]) }
+		return {
+			number: stripLeadingZeros(numberOnly[1]),
+			...(numberOnly[2] ? { printedTotal: Number(stripLeadingZeros(numberOnly[2])) } : {}),
+		}
 	}
 
 	return { name: query }

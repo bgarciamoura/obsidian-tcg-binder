@@ -20,8 +20,12 @@ describe('parseCardQuery', () => {
 	})
 
 	it('parses collector-number-only queries', () => {
-		expect(parseCardQuery('45/198')).toEqual({ number: '45' })
 		expect(parseCardQuery('45')).toEqual({ number: '45' })
+	})
+
+	it('parses printed number/total queries with the set-identifying denominator', () => {
+		expect(parseCardQuery('45/198')).toEqual({ number: '45', printedTotal: 198 })
+		expect(parseCardQuery('045/091')).toEqual({ number: '45', printedTotal: 91 })
 	})
 
 	it('keeps suffixed numbers like "TG12"-style promos intact', () => {

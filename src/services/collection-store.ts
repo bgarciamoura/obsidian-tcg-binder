@@ -11,6 +11,18 @@ export interface StoredEntry {
 	qty: number
 	variant: CardVariant
 	condition: CardCondition
+	/**
+	 * ISO date (YYYY-MM-DD) the card actually entered the collection —
+	 * stamped when qty first goes above zero, never for checklist rows.
+	 * Null on rows that predate this field.
+	 */
+	added: string | null
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/
+
+function today(): string {
+	return new Date().toISOString().slice(0, 10)
 }
 
 export interface EntryKey {
@@ -47,6 +59,10 @@ export class CollectionStore {
 					link: typeof item.link === 'string' ? item.link : '',
 					variant: isCardVariant(item.variant) ? item.variant : 'normal',
 					condition: isCardCondition(item.condition) ? item.condition : 'NM',
+					added:
+						typeof item.added === 'string' && ISO_DATE.test(item.added)
+							? item.added.slice(0, 10)
+							: null,
 				},
 			]
 		})
@@ -69,9 +85,22 @@ export class CollectionStore {
 			if (index >= 0 && isRecord(list[index])) {
 				const current = list[index]
 				const currentQty = typeof current.qty === 'number' ? current.qty : 0
-				list[index] = { ...current, qty: currentQty + qty }
+				const nextQty = currentQty + qty
+				list[index] = {
+					...current,
+					qty: nextQty,
+					// A checklist row receiving its first copies gets stamped now.
+					...(nextQty > 0 && typeof current.added !== 'string' ? { added: today() } : {}),
+				}
 			} else {
-				const entry = { id: cardId, link: cardLink, qty, variant, condition }
+				const entry = {
+					id: cardId,
+					link: cardLink,
+					qty,
+					variant,
+					condition,
+					...(qty > 0 ? { added: today() } : {}),
+				}
 				const anchor = afterKey ? list.findIndex((item) => matchesKey(item, afterKey)) : -1
 				if (anchor >= 0) {
 					list.splice(anchor + 1, 0, entry)
@@ -90,7 +119,16 @@ export class CollectionStore {
 			const list: unknown[] = Array.isArray(raw) ? [...(raw as unknown[])] : []
 			const index = list.findIndex((item) => matchesKey(item, key))
 			if (index < 0 || !isRecord(list[index])) return
-			list[index] = { ...list[index], qty: Math.max(0, qty) }
+			const current = list[index]
+			const nextQty = Math.max(0, qty)
+			const wasZero = typeof current.qty !== 'number' || current.qty <= 0
+			list[index] = {
+				...current,
+				qty: nextQty,
+				...(wasZero && nextQty > 0 && typeof current.added !== 'string'
+					? { added: today() }
+					: {}),
+			}
 			fm.entries = list
 		})
 	}
@@ -115,15 +153,70 @@ export class CollectionStore {
 			const targetKey: EntryKey = { id: key.id, variant, condition }
 			const target = list.findIndex((item, i) => i !== index && matchesKey(item, targetKey))
 			if (target >= 0 && isRecord(list[target])) {
-				const sourceQty = typeof list[index].qty === 'number' ? list[index].qty : 0
+				const source = list[index]
+				const sourceQty = typeof source.qty === 'number' ? source.qty : 0
 				const targetQty = typeof list[target].qty === 'number' ? list[target].qty : 0
-				list[target] = { ...list[target], qty: targetQty + sourceQty }
+				list[target] = {
+					...list[target],
+					qty: targetQty + sourceQty,
+					// The merged pile keeps its earliest known acquisition date.
+					...(typeof list[target].added !== 'string' && typeof source.added === 'string'
+						? { added: source.added }
+						: {}),
+				}
 				list.splice(index, 1)
 			} else {
 				list[index] = { ...list[index], variant, condition }
 			}
 			fm.entries = list
 		})
+	}
+
+	/**
+	 * Inserts a full entry preserving its acquisition date; merges by key
+	 * (quantities sum, the earliest known date wins). Used by moves.
+	 */
+	async upsertEntry(file: TFile, entry: StoredEntry): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const raw: unknown = fm.entries
+			const list: unknown[] = Array.isArray(raw) ? [...(raw as unknown[])] : []
+			const key: EntryKey = { id: entry.id, variant: entry.variant, condition: entry.condition }
+			const index = list.findIndex((item) => matchesKey(item, key))
+			if (index >= 0 && isRecord(list[index])) {
+				const current = list[index]
+				const currentQty = typeof current.qty === 'number' ? current.qty : 0
+				const currentAdded = typeof current.added === 'string' ? current.added : null
+				const earliest =
+					currentAdded && entry.added
+						? (currentAdded < entry.added ? currentAdded : entry.added)
+						: (currentAdded ?? entry.added)
+				list[index] = {
+					...current,
+					qty: currentQty + entry.qty,
+					...(earliest ? { added: earliest } : {}),
+				}
+			} else {
+				list.push({
+					id: entry.id,
+					link: entry.link,
+					qty: entry.qty,
+					variant: entry.variant,
+					condition: entry.condition,
+					...(entry.added ? { added: entry.added } : {}),
+				})
+			}
+			fm.entries = list
+		})
+	}
+
+	/** Moves one line (qty, variant, condition and acquisition date) between collections. */
+	async moveEntry(from: TFile, to: TFile, key: EntryKey): Promise<void> {
+		const entry = this.readEntries(from).find(
+			(item) => item.id === key.id && item.variant === key.variant && item.condition === key.condition,
+		)
+		if (!entry) return
+		await this.upsertEntry(to, entry)
+		await this.removeEntry(from, key)
 	}
 
 	/** Deletes an entry line entirely (the explicit ×, as opposed to qty 0). */
@@ -147,6 +240,7 @@ export class CollectionStore {
 				qty: entry.qty,
 				variant: entry.variant,
 				condition: entry.condition,
+				...(entry.added ? { added: entry.added } : {}),
 			}))
 		})
 	}

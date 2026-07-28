@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { matchesAllTokens, normalizeForMatch, searchAnchor } from '../src/domain/text-match'
+import {
+	functionalKey,
+	matchesAllTokens,
+	normalizeForMatch,
+	searchAnchor,
+} from '../src/domain/text-match'
 
 describe('normalizeForMatch', () => {
 	it('strips diacritics and lowercases', () => {
@@ -22,6 +27,20 @@ describe('matchesAllTokens', () => {
 	it('rejects names missing a token', () => {
 		expect(matchesAllTokens('Rocky Fighting Energy', 'Rocky W Energy')).toBe(false)
 		expect(matchesAllTokens('Switch', 'Switch Cart')).toBe(false)
+	})
+})
+
+describe('functionalKey', () => {
+	it('prefers the canonical English name over localized and id', () => {
+		expect(functionalKey('Switch', 'Substituição', 'sv01-194')).toBe('switch')
+		expect(functionalKey(null, 'Substituição', 'sv01-194')).toBe('substituicao')
+		expect(functionalKey(null, null, 'sv01-194')).toBe('sv01-194')
+	})
+
+	it('makes cross-language entries of the same card converge', () => {
+		expect(functionalKey('Switch', 'Substituição', 'sv01-194')).toBe(
+			functionalKey(null, 'Switch', 'me01-130'),
+		)
 	})
 })
 
