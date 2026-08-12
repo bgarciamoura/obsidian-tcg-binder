@@ -1,6 +1,8 @@
 import type { CardData, CardDataSource, CardSearchQuery, SetInfo } from './card-data-source'
 import { requestJson } from './http'
 import { stripLeadingZeros } from '../../domain/card-list'
+import { canonicalSupertype } from '../../domain/card-fields'
+import { isBasicEnergy } from '../../domain/deck-rules'
 import { matchesAllTokens, searchAnchor } from '../../domain/text-match'
 
 const REST_ROOT = 'https://api.tcgdex.net/v2'
@@ -132,6 +134,11 @@ export class TcgdexSource implements CardDataSource {
 			if (lang !== 'en' && !localized.nameEn) {
 				// One request per SET (memoized), not per card.
 				localized.nameEn = (await this.getCanonicalNames(localized.setId)).get(localized.number) ?? null
+			}
+			// Safety net: `energyType` may be localized on some locales, so the
+			// structured basic-energy check can miss — the English name cannot.
+			if (!localized.copyLimitExempt && localized.nameEn) {
+				localized.copyLimitExempt = isBasicEnergy(localized.supertype, localized.nameEn)
 			}
 			return localized
 		}
@@ -304,6 +311,9 @@ export class TcgdexSource implements CardDataSource {
 	private toCardData(card: TdxCard): CardData {
 		const setId = card.set?.id ?? card.id.split('-')[0]
 		const image = this.imageBase(card.image)
+		// `category` comes back localized ("Energia", "Dresseur", ...) on
+		// non-English locales — normalize before it reaches notes/validation.
+		const supertype = canonicalSupertype(card.category ?? null) ?? ''
 		const subtypes = [card.stage, card.suffix, card.trainerType, card.energyType].filter(
 			(value): value is string => typeof value === 'string' && value.length > 0,
 		)
@@ -322,7 +332,7 @@ export class TcgdexSource implements CardDataSource {
 			setCode: this.sets?.find((s) => s.id === setId)?.code ?? null,
 			setName: card.set?.name ?? setId,
 			number: stripLeadingZeros(card.localId),
-			supertype: card.category === 'Pokemon' ? 'Pokémon' : (card.category ?? ''),
+			supertype,
 			subtypes,
 			rarity: card.rarity ?? null,
 			imageSmall: image ? `${image}/low.webp` : null,
@@ -332,7 +342,7 @@ export class TcgdexSource implements CardDataSource {
 			legalities,
 			// TCGdex marks basic energies as energyType "Normal" (vs "Special").
 			copyLimitExempt:
-				card.category === 'Energy' && (card.energyType === 'Normal' || card.energyType === 'Basic'),
+				supertype === 'Energy' && (card.energyType === 'Normal' || card.energyType === 'Basic'),
 		}
 	}
 

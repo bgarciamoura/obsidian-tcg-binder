@@ -4,6 +4,7 @@ import type { CardData } from './card-data/card-data-source'
 import { ensureFolder, findAvailablePath, listMarkdownFilesIn } from '../utils/vault'
 import { sanitizeFileName } from '../utils/file-name'
 import { isBasicEnergy } from '../domain/deck-rules'
+import { canonicalSupertype } from '../domain/card-fields'
 
 /** Card note frontmatter, resolved for display. */
 export interface CardMeta {
@@ -53,12 +54,15 @@ export class CardNotes {
 		if (!fm || fm[FRONTMATTER_TYPE_KEY] !== 'card') return null
 		const cardId = typeof fm['card-id'] === 'string' ? fm['card-id'] : file.path
 		const name = typeof fm.name === 'string' ? fm.name : file.basename
-		const supertype = stringOrNull(fm.supertype)
+		const nameEn = stringOrNull(fm['name-en'])
+		// Notes hydrated from a localized source may carry a localized
+		// supertype ("Energia") — normalize on read, no migration needed.
+		const supertype = canonicalSupertype(stringOrNull(fm.supertype))
 		return {
 			file,
 			cardId,
 			name,
-			nameEn: stringOrNull(fm['name-en']),
+			nameEn,
 			setId: stringOrNull(fm['set-id']),
 			setCode: stringOrNull(fm['set-code']),
 			setName: stringOrNull(fm['set-name']),
@@ -69,8 +73,12 @@ export class CardNotes {
 			priceMarket: typeof fm['price-market'] === 'number' ? fm['price-market'] : null,
 			priceUpdated: stringOrNull(fm['price-updated']),
 			legalities: stringArrayOrNull(fm.legalities),
-			// Name fallback repairs notes created before sources flagged basics correctly.
-			copyLimitExempt: fm['copy-limit-exempt'] === true || isBasicEnergy(supertype, name),
+			// Name fallback repairs notes created before sources flagged basics
+			// correctly; localized notes match through the English name.
+			copyLimitExempt:
+				fm['copy-limit-exempt'] === true ||
+				isBasicEnergy(supertype, name) ||
+				(nameEn !== null && isBasicEnergy(supertype, nameEn)),
 		}
 	}
 
