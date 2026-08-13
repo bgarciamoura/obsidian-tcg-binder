@@ -12,6 +12,7 @@ import type { SetInfo } from '../services/card-data/card-data-source'
 import type { CardMeta } from '../services/card-notes'
 import type { StoredEntry } from '../services/collection-store'
 import { FilePickerModal } from '../modals/file-picker-modal'
+import { CardDetailModal } from '../modals/card-detail-modal'
 import type TcgBinderPlugin from '../main'
 
 interface CollectionViewProps {
@@ -173,8 +174,26 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 		})
 	}
 
+	/**
+	 * Navigation order for the card viewer = the list on screen (filters and
+	 * sort applied), deduped by card id — variant lines share one card.
+	 */
+	const detailMetas = useMemo(() => {
+		const seen = new Set<string>()
+		const list: CardMeta[] = []
+		for (const row of filtered) {
+			if (row.meta && !seen.has(row.meta.cardId)) {
+				seen.add(row.meta.cardId)
+				list.push(row.meta)
+			}
+		}
+		return list
+	}, [filtered])
+
 	const openCard = (row: Row) => {
-		if (row.meta) void app.workspace.getLeaf(true).openFile(row.meta.file)
+		if (!row.meta) return
+		const start = detailMetas.findIndex((meta) => meta.cardId === row.meta?.cardId)
+		new CardDetailModal(app, plugin, detailMetas, Math.max(0, start)).open()
 	}
 
 	/** Moves the whole line to another collection, chosen via fuzzy picker. */

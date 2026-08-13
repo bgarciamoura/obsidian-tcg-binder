@@ -33,6 +33,17 @@ interface TdxCard extends TdxResume {
 	pricing?: {
 		tcgplayer?: Record<string, unknown>
 	}
+	hp?: number
+	types?: string[]
+	evolveFrom?: string
+	abilities?: { type?: string; name?: string; effect?: string }[]
+	attacks?: { cost?: string[]; name?: string; effect?: string; damage?: number | string }[]
+	/** Trainer/Special Energy effect text. */
+	effect?: string
+	/** Flavor text. */
+	description?: string
+	retreat?: number
+	illustrator?: string
 }
 
 interface TdxSetResume {
@@ -343,6 +354,26 @@ export class TcgdexSource implements CardDataSource {
 			// TCGdex marks basic energies as energyType "Normal" (vs "Special").
 			copyLimitExempt:
 				supertype === 'Energy' && (card.energyType === 'Normal' || card.energyType === 'Basic'),
+			details: {
+				hp: typeof card.hp === 'number' ? String(card.hp) : null,
+				types: card.types ?? [],
+				evolvesFrom: card.evolveFrom ?? null,
+				abilities: (card.abilities ?? [])
+					.filter((ability) => ability.name)
+					.map((ability) => ({ name: ability.name ?? '', text: ability.effect ?? '' })),
+				attacks: (card.attacks ?? [])
+					.filter((attack) => attack.name)
+					.map((attack) => ({
+						name: attack.name ?? '',
+						cost: attack.cost ?? [],
+						damage: attack.damage !== undefined ? String(attack.damage) : null,
+						text: attack.effect ?? null,
+					})),
+				rules: card.effect ? [card.effect] : [],
+				retreat: card.retreat ?? null,
+				flavorText: card.description ?? null,
+				illustrator: card.illustrator ?? null,
+			},
 		}
 	}
 

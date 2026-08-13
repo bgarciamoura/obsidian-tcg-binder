@@ -16,6 +16,15 @@ interface ApiCard {
 	images?: { small?: string; large?: string }
 	legalities?: Record<string, string>
 	tcgplayer?: { prices?: Record<string, { market?: number | null } | undefined> }
+	hp?: string
+	types?: string[]
+	evolvesFrom?: string
+	abilities?: { name?: string; text?: string; type?: string }[]
+	attacks?: { name?: string; cost?: string[]; damage?: string; text?: string }[]
+	rules?: string[]
+	retreatCost?: string[]
+	flavorText?: string
+	artist?: string
 }
 
 interface ApiSet {
@@ -140,6 +149,26 @@ export class PokemonTcgSource implements CardDataSource {
 				.filter(([, status]) => status === 'Legal')
 				.map(([format]) => format.toLowerCase()),
 			copyLimitExempt: card.supertype === 'Energy' && subtypes.includes('Basic'),
+			details: {
+				hp: card.hp ?? null,
+				types: card.types ?? [],
+				evolvesFrom: card.evolvesFrom ?? null,
+				abilities: (card.abilities ?? [])
+					.filter((ability) => ability.name)
+					.map((ability) => ({ name: ability.name ?? '', text: ability.text ?? '' })),
+				attacks: (card.attacks ?? [])
+					.filter((attack) => attack.name)
+					.map((attack) => ({
+						name: attack.name ?? '',
+						cost: attack.cost ?? [],
+						damage: attack.damage || null,
+						text: attack.text ?? null,
+					})),
+				rules: card.rules ?? [],
+				retreat: card.retreatCost?.length ?? null,
+				flavorText: card.flavorText ?? null,
+				illustrator: card.artist ?? null,
+			},
 		}
 	}
 

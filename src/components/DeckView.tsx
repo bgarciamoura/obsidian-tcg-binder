@@ -9,6 +9,7 @@ import type { ViewMode } from '../settings'
 import type { CardMeta } from '../services/card-notes'
 import type { DeckStoredEntry } from '../services/deck-store'
 import type { DeckFormat } from '../types'
+import { CardDetailModal } from '../modals/card-detail-modal'
 import type TcgBinderPlugin from '../main'
 
 interface DeckViewProps {
@@ -114,10 +115,6 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		void plugin.decks.setQuantity(file, row.id, row.qty + delta)
 	}
 
-	const openCard = (row: Row) => {
-		if (row.meta) void app.workspace.getLeaf(true).openFile(row.meta.file)
-	}
-
 	const grouped = useMemo(() => {
 		const buckets: Record<Group, Row[]> = { pokemon: [], trainer: [], energy: [] }
 		for (const row of rows) buckets[groupOf(row)].push(row)
@@ -126,6 +123,21 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		}
 		return buckets
 	}, [rows])
+
+	/** Navigation order for the card viewer = the grouped order on screen. */
+	const detailMetas = useMemo(
+		() =>
+			GROUPS.flatMap((group) => grouped[group])
+				.map((row) => row.meta)
+				.filter((meta): meta is CardMeta => meta !== null),
+		[grouped],
+	)
+
+	const openCard = (row: Row) => {
+		if (!row.meta) return
+		const start = detailMetas.findIndex((meta) => meta.cardId === row.meta?.cardId)
+		new CardDetailModal(app, plugin, detailMetas, Math.max(0, start)).open()
+	}
 
 	return (
 		<div className="tcgb-root">

@@ -7,6 +7,37 @@ export class RateLimitError extends Error {
 	}
 }
 
+export interface CardAbility {
+	name: string
+	text: string
+}
+
+export interface CardAttack {
+	name: string
+	/** Energy cost as type names, e.g. ["Lightning", "Colorless"]. */
+	cost: string[]
+	damage: string | null
+	text: string | null
+}
+
+/**
+ * Full card text, only present on cards fetched from a detail endpoint
+ * (search resumes and older disk caches don't carry it). Localized to the
+ * configured card language where the source supports it.
+ */
+export interface CardDetails {
+	hp: string | null
+	types: string[]
+	evolvesFrom: string | null
+	abilities: CardAbility[]
+	attacks: CardAttack[]
+	/** Trainer/Special Energy effect and rule-box paragraphs. */
+	rules: string[]
+	retreat: number | null
+	flavorText: string | null
+	illustrator: string | null
+}
+
 /** Normalized card shape shared by every data source, regardless of game. */
 export interface CardData {
 	id: string
@@ -30,6 +61,8 @@ export interface CardData {
 	legalities: string[]
 	/** Exempt from deck copy limits (e.g. Pokémon basic energy). */
 	copyLimitExempt: boolean
+	/** Full card text — see CardDetails. Absent on partial results. */
+	details?: CardDetails
 }
 
 /** Normalized set/expansion shape. */
