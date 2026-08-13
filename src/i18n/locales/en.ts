@@ -151,4 +151,12 @@ export const en = {
 	'detail.retreat': 'Retreat cost',
 	'detail.evolves-from': 'Evolves from {name}',
 	'detail.illustrator': 'Illustrated by {name}',
+	'command.quick-add': 'Quick add by set',
+	'quick.title': 'Quick add — {set}',
+	'quick.hint': 'Type the collector number printed on the card and press Enter. "45x3" adds three copies; a trailing r/h/p sets reverse holo/holo/promo. Several numbers at once work too.',
+	'quick.placeholder': '45 · 45x3 · 45r',
+	'quick.not-found': 'No card matches "{token}" in this set',
+	'quick.added': '{name} ×{qty} added',
+	'quick.session': '{count} cards this session',
+	'quick.change-set': 'Change set',
 }

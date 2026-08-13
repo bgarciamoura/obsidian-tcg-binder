@@ -19,6 +19,7 @@ import { ImportListModal, ImportSummary } from './modals/import-list-modal'
 import { ImportDeckModal } from './modals/import-deck-modal'
 import { FilePickerModal } from './modals/file-picker-modal'
 import { SetPickerModal } from './modals/set-picker-modal'
+import { QuickAddModal } from './modals/quick-add-modal'
 import type { SetInfo } from './services/card-data/card-data-source'
 import { pokemonTcgIoImageCandidates } from './services/card-data/fallback-images'
 import { urlExists } from './services/card-data/http'
@@ -83,6 +84,13 @@ export default class TcgBinderPlugin extends Plugin {
 			name: t('command.add-cards'),
 			callback: () => {
 				void this.openAddCards()
+			},
+		})
+		this.addCommand({
+			id: 'quick-add-by-set',
+			name: t('command.quick-add'),
+			callback: () => {
+				void this.openQuickAddBySet()
 			},
 		})
 		this.addCommand({
@@ -260,6 +268,58 @@ export default class TcgBinderPlugin extends Plugin {
 				})()
 			}).open()
 		}).open()
+	}
+
+	/** Rapid physical-card entry: pick a set once, then add cards by collector number. */
+	async openQuickAddBySet(): Promise<void> {
+		const collections = await this.ensureCollections()
+		const sets = [...(await this.setCatalog.load())].sort((a, b) =>
+			b.releaseDate.localeCompare(a.releaseDate),
+		)
+		if (sets.length === 0) {
+			new Notice(t('search.error'))
+			return
+		}
+		new SetPickerModal(this.app, sets, (set) => {
+			void this.startQuickAdd(set, collections)
+		}).open()
+	}
+
+	private async startQuickAdd(set: SetInfo, collections: TFile[]): Promise<void> {
+		const progress = new Notice(t('setcol.running'), 0)
+		let cards: CardData[] = []
+		try {
+			cards = await this.setCards.getSetCards(set.id)
+		} catch (error) {
+			new Notice(error instanceof RateLimitError ? t('search.rate-limited') : String(error))
+			return
+		} finally {
+			progress.hide()
+		}
+		if (cards.length === 0) {
+			new Notice(t('search.error'))
+			return
+		}
+		// Let the set picker finish closing before opening the entry modal —
+		// opening mid-close breaks focus/keyboard scope.
+		window.setTimeout(() => {
+			new QuickAddModal(this.app, set, cards, collections, {
+				add: async (card, collection, qty, variant, condition) => {
+					const cardFile = await this.cardNotes.ensureCardNote(card)
+					await this.collections.addEntry(
+						collection,
+						card.id,
+						`[[${cardFile.basename}]]`,
+						qty,
+						variant,
+						condition,
+					)
+				},
+				switchSet: () => {
+					void this.openQuickAddBySet()
+				},
+			}).open()
+		}, 80)
 	}
 
 	async openImportList(): Promise<void> {

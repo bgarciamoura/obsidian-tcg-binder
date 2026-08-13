@@ -1324,3 +1324,59 @@ select.tcgb-cond {
 .is-mobile .tcgb-detail-info {
 	max-height: none;
 }
+
+/* ============ Quick add by set ============ */
+
+.tcgb-quick-modal {
+	max-width: 460px;
+}
+
+.tcgb-quick-input {
+	width: 100%;
+	margin-top: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	font-size: var(--font-ui-large);
+	font-variant-numeric: tabular-nums;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tcgb-quick-input:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
+}
+
+.tcgb-quick-preview {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 96px;
+	margin-top: var(--size-4-2);
+}
+
+.tcgb-quick-img {
+	width: 68px;
+	height: auto;
+	border-radius: var(--radius-s);
+	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+
+.tcgb-quick-name {
+	font-weight: var(--font-semibold);
+}
+
+.tcgb-quick-status {
+	min-height: 1.6em;
+	margin-top: var(--size-2-3);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-quick-ok {
+	color: var(--color-green);
+}
+
+.tcgb-quick-miss {
+	color: var(--text-error);
+}

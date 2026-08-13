@@ -152,4 +152,12 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'detail.retreat': 'Custo de recuo',
 	'detail.evolves-from': 'Evolui de {name}',
 	'detail.illustrator': 'Ilustrada por {name}',
+	'command.quick-add': 'Adição rápida por set',
+	'quick.title': 'Adição rápida — {set}',
+	'quick.hint': 'Digite o número do coletor impresso na carta e pressione Enter. "45x3" adiciona três cópias; r/h/p no final marca reverse holo/holo/promo. Vários números de uma vez também funcionam.',
+	'quick.placeholder': '45 · 45x3 · 45r',
+	'quick.not-found': 'Nenhuma carta corresponde a "{token}" neste set',
+	'quick.added': '{name} ×{qty} adicionada',
+	'quick.session': '{count} cartas nesta sessão',
+	'quick.change-set': 'Trocar set',
 }
