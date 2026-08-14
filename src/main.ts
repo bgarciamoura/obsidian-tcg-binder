@@ -13,7 +13,8 @@ import { TcgdexSource } from './services/card-data/tcgdex-source'
 import type { CardData, CardDataSource } from './services/card-data/card-data-source'
 import { RateLimitError } from './services/card-data/card-data-source'
 import { CardSearchModal } from './modals/card-search-modal'
-import { AddCardModal } from './modals/add-card-modal'
+import { AddCardModal, previewFromCardData } from './modals/add-card-modal'
+import type { CardMeta } from './services/card-notes'
 import { AddToDeckModal } from './modals/add-to-deck-modal'
 import { ImportListModal, ImportSummary } from './modals/import-list-modal'
 import { ImportDeckModal } from './modals/import-deck-modal'
@@ -244,7 +245,7 @@ export default class TcgBinderPlugin extends Plugin {
 	/** Search → configure → add, looping while "keep searching" is on. */
 	private runAddCardsLoop(collections: TFile[]): void {
 		new CardSearchModal(this.app, this.activeSource(), this.setCatalog, this.settings.defaultViewMode, (card) => {
-			new AddCardModal(this.app, card, collections, (choice) => {
+			new AddCardModal(this.app, previewFromCardData(card), collections, (choice) => {
 				void (async () => {
 					try {
 						const cardFile = await this.ensureHydratedCardNote(card)
@@ -527,6 +528,44 @@ export default class TcgBinderPlugin extends Plugin {
 			added += quantity
 		}
 		return { added, failed }
+	}
+
+	/**
+	 * Adds an already-known card (existing note) to a collection — used by the
+	 * deck view's "missing from collection" list after the cards were bought.
+	 */
+	async openAddOwnedCard(meta: CardMeta, link: string, initialQuantity: number): Promise<void> {
+		const collections = await this.ensureCollections()
+		const preview = {
+			name: meta.name,
+			image: meta.image,
+			metaLine: [meta.setName ?? meta.setCode, meta.number ? `#${meta.number}` : null, meta.rarity]
+				.filter(Boolean)
+				.join(' · '),
+		}
+		new AddCardModal(
+			this.app,
+			preview,
+			collections,
+			(choice) => {
+				void (async () => {
+					try {
+						await this.collections.addEntry(
+							choice.collection,
+							meta.cardId,
+							link,
+							choice.quantity,
+							choice.variant,
+							choice.condition,
+						)
+						new Notice(t('notice.card-added', { name: meta.name }))
+					} catch (error) {
+						new Notice(String(error))
+					}
+				})()
+			},
+			{ initialQuantity, showKeepSearching: false },
+		).open()
 	}
 
 	async openAddToDeck(): Promise<void> {

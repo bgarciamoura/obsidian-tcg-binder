@@ -159,4 +159,5 @@ export const en = {
 	'quick.added': '{name} ×{qty} added',
 	'quick.session': '{count} cards this session',
 	'quick.change-set': 'Change set',
+	'deck.add-missing': 'Add to a collection',
 }

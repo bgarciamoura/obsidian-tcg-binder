@@ -12,7 +12,29 @@ export interface AddCardChoice {
 	keepSearching: boolean
 }
 
-/** Quantity/variant/condition picker shown after choosing a card in the search. */
+/** What the modal shows about the card being added — source-agnostic. */
+export interface CardPreview {
+	name: string
+	image: string | null
+	metaLine: string
+}
+
+export interface AddCardOptions {
+	/** Prefilled quantity (default 1). */
+	initialQuantity?: number
+	/** Show the "keep searching" toggle (default true — the search loop). */
+	showKeepSearching?: boolean
+}
+
+export function previewFromCardData(card: CardData): CardPreview {
+	return {
+		name: card.name,
+		image: card.imageSmall,
+		metaLine: [card.setName, `#${card.number}`, card.rarity].filter(Boolean).join(' · '),
+	}
+}
+
+/** Quantity/variant/condition picker for adding one card to a collection. */
 export class AddCardModal extends Modal {
 	// Session-sticky defaults: bulk-adding usually repeats the same choices.
 	private static lastCollectionPath: string | null = null
@@ -22,36 +44,35 @@ export class AddCardModal extends Modal {
 
 	constructor(
 		app: App,
-		private readonly card: CardData,
+		private readonly preview: CardPreview,
 		private readonly collections: TFile[],
 		private readonly onSubmit: (choice: AddCardChoice) => void,
+		private readonly options: AddCardOptions = {},
 	) {
 		super(app)
 	}
 
 	onOpen(): void {
-		this.setTitle(this.card.name)
+		this.setTitle(this.preview.name)
 		const { contentEl } = this
 		contentEl.empty()
 
 		const preview = contentEl.createDiv('tcgb-add-preview')
-		if (this.card.imageSmall) {
+		if (this.preview.image) {
 			preview.createEl('img', {
 				cls: 'tcgb-add-image',
-				attr: { src: this.card.imageSmall, alt: this.card.name },
+				attr: { src: this.preview.image, alt: this.preview.name },
 			})
 		}
-		preview.createDiv({
-			cls: 'tcgb-suggestion-meta',
-			text: [this.card.setName, `#${this.card.number}`, this.card.rarity].filter(Boolean).join(' · '),
-		})
+		preview.createDiv({ cls: 'tcgb-suggestion-meta', text: this.preview.metaLine })
 
+		const showKeepSearching = this.options.showKeepSearching ?? true
 		let collection =
 			this.collections.find((f) => f.path === AddCardModal.lastCollectionPath) ?? this.collections[0]
-		let quantity = 1
+		let quantity = this.options.initialQuantity ?? 1
 		let variant = AddCardModal.lastVariant
 		let condition = AddCardModal.lastCondition
-		let keepSearching = AddCardModal.lastKeepSearching
+		let keepSearching = showKeepSearching && AddCardModal.lastKeepSearching
 
 		new Setting(contentEl).setName(t('add.collection')).addDropdown((dd) => {
 			this.collections.forEach((file, i) => {
@@ -66,7 +87,7 @@ export class AddCardModal extends Modal {
 		new Setting(contentEl).setName(t('add.quantity')).addText((text) => {
 			text.inputEl.type = 'number'
 			text.inputEl.min = '1'
-			text.setValue('1')
+			text.setValue(String(quantity))
 			text.onChange((value) => {
 				quantity = Number(value)
 			})
@@ -88,23 +109,26 @@ export class AddCardModal extends Modal {
 			})
 		})
 
-		new Setting(contentEl).setName(t('add.keep-searching')).addToggle((toggle) => {
-			toggle.setValue(keepSearching)
-			toggle.onChange((value) => {
-				keepSearching = value
+		if (showKeepSearching) {
+			new Setting(contentEl).setName(t('add.keep-searching')).addToggle((toggle) => {
+				toggle.setValue(keepSearching)
+				toggle.onChange((value) => {
+					keepSearching = value
+				})
 			})
-		})
+		}
 
 		new Setting(contentEl).addButton((btn) =>
 			btn
 				.setButtonText(t('add.submit'))
 				.setCta()
 				.onClick(() => {
-					const qty = Number.isInteger(quantity) && quantity > 0 ? quantity : 1
+					const qty =
+						Number.isInteger(quantity) && quantity > 0 ? quantity : (this.options.initialQuantity ?? 1)
 					AddCardModal.lastCollectionPath = collection.path
 					AddCardModal.lastVariant = variant
 					AddCardModal.lastCondition = condition
-					AddCardModal.lastKeepSearching = keepSearching
+					if (showKeepSearching) AddCardModal.lastKeepSearching = keepSearching
 					this.close()
 					this.onSubmit({ collection, quantity: qty, variant, condition, keepSearching })
 				}),

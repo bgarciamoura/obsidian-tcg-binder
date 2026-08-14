@@ -302,6 +302,19 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 									? `$${(row.missingQty * row.meta.priceMarket).toFixed(2)}`
 									: '—'}
 							</span>
+							{row.meta && (
+								<button
+									className="tcgb-row-action"
+									aria-label={t('deck.add-missing')}
+									title={t('deck.add-missing')}
+									onClick={() => {
+										const meta = row.meta
+										if (meta) void plugin.openAddOwnedCard(meta, row.link, row.missingQty)
+									}}
+								>
+									+
+								</button>
+							)}
 						</div>
 					))
 				)}

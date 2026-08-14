@@ -160,4 +160,5 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'quick.added': '{name} ×{qty} adicionada',
 	'quick.session': '{count} cartas nesta sessão',
 	'quick.change-set': 'Trocar set',
+	'deck.add-missing': 'Adicionar a uma coleção',
 }

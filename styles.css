@@ -445,7 +445,8 @@ select.tcgb-cond {
 	transition: opacity 150ms ease-out, color 150ms ease-out;
 }
 
-.tcgb-table tbody tr:hover .tcgb-row-action {
+.tcgb-table tbody tr:hover .tcgb-row-action,
+.tcgb-deck-row:hover .tcgb-row-action {
 	opacity: 1;
 }
 
