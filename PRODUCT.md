@@ -66,7 +66,7 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 - [x] README comercial (posicionamento da pesquisa: dados do usuário, bulk entry, comparativo de dores) + LICENSE MIT + disclaimer de trademark
 - [x] Demo vault em `demo-vault/` (coleção, deck 60 cartas, notas de carta)
 - [x] CSS responsivo para larguras estreitas (≤600px: filtros empilhados, tiles fluidos, tabela compacta)
-- [ ] Screenshots/GIFs (lista do que capturar em `docs/assets/README.md` — captura manual pendente)
+- [x] Screenshots no README (dashboard, coleção, deck — issue #1 resolvida em 2026-08-16); GIFs opcionais seguem pendentes
 - [ ] Teste mobile em device real (selects nativos devem funcionar; risco conhecido: foco em input dentro de view-content esconde conteúdo no mobile)
 - [x] Repositório GitHub (`bgarciamoura/obsidian-tcg-binder`) + releases 1.0.0–1.2.0 via `release.mjs`
 - [x] **Submissão à community store: ACEITA** — o plugin está listado e instalável desde 2026-07-27 (fluxo automatizado de scan; correções exigidas: escopo de vault, `!important`, settings declarativas)
@@ -74,6 +74,19 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 ## 🚀 Lançado
 
 O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
+
+### Pós-lançamento — entregas até 1.8.0 (2026-08)
+
+Notas completas por versão em `docs/release-notes/`. Destaques desde o lançamento:
+
+- [x] **1.3.0** — datas de aquisição (filtro/ordenação por período), identidade canônica (`name-en` como chave entre idiomas), busca por número impresso, mover carta entre coleções
+- [x] **1.3.1** — categorias localizadas do TCGdex normalizadas (`Energia`/`Treinador` → supertypes canônicos; energias em pt-BR agrupavam como treinador e perdiam a isenção de limite de cópias)
+- [x] **1.4.0** — **modal de detalhe da carta**: scan grande, metadados, navegação ‹/› + setas do teclado seguindo a lista visível, texto da carta (habilidades/ataques/regras) sob demanda com cache
+- [x] **1.5.0** — **adição rápida por set**: escolhe o set uma vez e cadastra carta física pelo número do coletor (preview visual, `45x3`, flags `r/h/p`, lote colado resiliente) — resposta definitiva à dor nº 1 (bulk entry)
+- [x] **1.6.0** — cartas faltantes do deck adicionáveis a uma coleção (qty pré-preenchida com o que falta)
+- [x] **1.7.0** — zerar quantidade remove a linha (coleções de set preservam o checklist); **upload de imagem própria** para cartas sem scan (salva no vault, embed na nota)
+- [x] **1.7.1** — substituir imagem enviada (troca embed, arquivo antigo vai à lixeira)
+- [x] **1.8.0** — **capas** de coleção/deck no dashboard (banner com corte diagonal, posição ajustável, remoção); **wishlist automática** na importação de deck + botão manual (idempotente); fluxo **"marcar como adquirida"** (wishlist → coleção); excluir deck/coleção pelo dashboard com confirmação; botão voltar ao topo; setting **"Reservar cartas usadas em decks"**
 
 ## Modelo de dados (proposta — validar na Fase 1)
 
