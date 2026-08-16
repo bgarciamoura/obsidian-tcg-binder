@@ -19,7 +19,10 @@ export interface CardMeta {
 	number: string | null
 	supertype: string | null
 	rarity: string | null
+	/** Display URL: remote as-is, vault paths resolved to app:// resources. */
 	image: string | null
+	/** Vault path of a user-uploaded image, null when the image is remote. */
+	localImagePath: string | null
 	priceMarket: number | null
 	priceUpdated: string | null
 	legalities: string[] | null
@@ -55,6 +58,7 @@ export class CardNotes {
 		const cardId = typeof fm['card-id'] === 'string' ? fm['card-id'] : file.path
 		const name = typeof fm.name === 'string' ? fm.name : file.basename
 		const nameEn = stringOrNull(fm['name-en'])
+		const rawImage = stringOrNull(fm.image)
 		// Notes hydrated from a localized source may carry a localized
 		// supertype ("Energia") — normalize on read, no migration needed.
 		const supertype = canonicalSupertype(stringOrNull(fm.supertype))
@@ -69,7 +73,9 @@ export class CardNotes {
 			number: stringOrNull(fm.number) ?? numberAsString(fm.number),
 			supertype,
 			rarity: stringOrNull(fm.rarity),
-			image: this.resolveImage(stringOrNull(fm.image)),
+			image: this.resolveImage(rawImage),
+			localImagePath:
+				rawImage && !/^https?:\/\//.test(rawImage) ? normalizePath(rawImage) : null,
 			priceMarket: typeof fm['price-market'] === 'number' ? fm['price-market'] : null,
 			priceUpdated: stringOrNull(fm['price-updated']),
 			legalities: stringArrayOrNull(fm.legalities),
@@ -167,15 +173,20 @@ export class CardNotes {
 
 	/**
 	 * Sets the image on a card note (remote URL or vault path): frontmatter
-	 * always; a body embed only when the body has none yet (the body belongs
-	 * to the user).
+	 * always; in the body, the embed of `replaceLocalPath` is swapped when
+	 * present, otherwise an embed is only added when the body has none yet
+	 * (the body belongs to the user).
 	 */
-	async setImage(file: TFile, image: string, cardName: string): Promise<void> {
+	async setImage(file: TFile, image: string, cardName: string, replaceLocalPath?: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			fm.image = image
 		})
 		const embed = /^https?:\/\//.test(image) ? `![${cardName}](${image})` : `![[${image}]]`
 		await this.app.vault.process(file, (content) => {
+			if (replaceLocalPath) {
+				const oldEmbed = `![[${replaceLocalPath}]]`
+				if (content.includes(oldEmbed)) return content.replace(oldEmbed, embed)
+			}
 			if (content.includes('![')) return content
 			const frontmatter = /^---\n[\s\S]*?\n---\n/.exec(content)
 			if (!frontmatter) return content

@@ -533,11 +533,18 @@ export default class TcgBinderPlugin extends Plugin {
 	}
 
 	/**
-	 * Saves a user-provided image for a card without one (API gap, manual
-	 * card) into the binder folder and stamps it on the note. Returns the
-	 * app:// resource URL for immediate display.
+	 * Saves a user-provided image for a card (API gap, manual card) into the
+	 * binder folder and stamps it on the note. When replacing an earlier
+	 * upload (`replacePath`), the body embed is swapped and the old file is
+	 * trashed — only after the new one is safely written. Returns the stored
+	 * vault path and the app:// resource URL for immediate display.
 	 */
-	async attachCardImage(meta: CardMeta, data: ArrayBuffer, fileName: string): Promise<string> {
+	async attachCardImage(
+		meta: CardMeta,
+		data: ArrayBuffer,
+		fileName: string,
+		replacePath: string | null,
+	): Promise<{ path: string; resourceUrl: string }> {
 		const ALLOWED = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif']
 		const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
 		if (!ALLOWED.includes(ext)) throw new Error(t('detail.image-invalid'))
@@ -550,8 +557,13 @@ export default class TcgBinderPlugin extends Plugin {
 			path = normalizePath(`${folder}/${base} ${suffix}.${ext}`)
 		}
 		const created = await this.app.vault.createBinary(path, data)
-		await this.cardNotes.setImage(meta.file, created.path, meta.name)
-		return this.app.vault.adapter.getResourcePath(created.path)
+		await this.cardNotes.setImage(meta.file, created.path, meta.name, replacePath ?? undefined)
+		if (replacePath) {
+			const previous = this.app.vault.getFileByPath(replacePath)
+			// Trash (not delete) — respects the user's "deleted files" setting.
+			if (previous) await this.app.fileManager.trashFile(previous)
+		}
+		return { path: created.path, resourceUrl: this.app.vault.adapter.getResourcePath(created.path) }
 	}
 
 	/**
