@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Notice } from 'obsidian'
 import { t } from '../i18n'
 import type { CardDetails } from '../services/card-data/card-data-source'
 import type { CardMeta } from '../services/card-notes'
@@ -28,10 +29,16 @@ type DetailsState = { status: 'loading' } | { status: 'done'; details: CardDetai
 export function CardDetail({ plugin, metas, startIndex, registerNavigate, onOpenNote }: CardDetailProps) {
 	const [index, setIndex] = useState(startIndex)
 	const [detailsState, setDetailsState] = useState<DetailsState>({ status: 'loading' })
+	// Images uploaded during this modal session (cardId → resource URL) —
+	// metas is a snapshot, so fresh uploads are displayed from here.
+	const [uploaded, setUploaded] = useState<ReadonlyMap<string, string>>(new Map())
+	const [uploading, setUploading] = useState(false)
+	const fileInputRef = useRef<HTMLInputElement>(null)
 	// Monotonic fetch id — a slow response for a card the user already
 	// navigated away from must not overwrite the current card's text.
 	const fetchId = useRef(0)
 	const meta = metas[index]
+	const image = uploaded.get(meta.cardId) ?? meta.image
 
 	const navigate = useCallback(
 		(delta: number) => {
@@ -101,10 +108,43 @@ export function CardDetail({ plugin, metas, startIndex, registerNavigate, onOpen
 
 				<div className="tcgb-detail-body">
 					<div className="tcgb-detail-imgcol">
-						{meta.image ? (
-							<img className="tcgb-detail-img" src={meta.image} alt={meta.name} />
+						{image ? (
+							<img className="tcgb-detail-img" src={image} alt={meta.name} />
 						) : (
-							<div className="tcgb-detail-img tcgb-tile-img-empty" />
+							<>
+								<div className="tcgb-detail-img tcgb-detail-img-empty tcgb-tile-img-empty" />
+								<button
+									className="tcgb-btn tcgb-detail-upload"
+									disabled={uploading}
+									onClick={() => fileInputRef.current?.click()}
+								>
+									{t('detail.add-image')}
+								</button>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept="image/*"
+									className="tcgb-detail-file"
+									onChange={(event) => {
+										const file = event.target.files?.[0]
+										event.target.value = ''
+										if (!file) return
+										setUploading(true)
+										void file
+											.arrayBuffer()
+											.then((data) => plugin.attachCardImage(meta, data, file.name))
+											.then((resourceUrl) => {
+												setUploaded((current) => new Map(current).set(meta.cardId, resourceUrl))
+											})
+											.catch((error: unknown) => {
+												new Notice(String(error))
+											})
+											.finally(() => {
+												setUploading(false)
+											})
+									}}
+								/>
+							</>
 						)}
 					</div>
 

@@ -15,6 +15,8 @@ import { RateLimitError } from './services/card-data/card-data-source'
 import { CardSearchModal } from './modals/card-search-modal'
 import { AddCardModal, previewFromCardData } from './modals/add-card-modal'
 import type { CardMeta } from './services/card-notes'
+import { ensureFolder } from './utils/vault'
+import { sanitizeFileName } from './utils/file-name'
 import { AddToDeckModal } from './modals/add-to-deck-modal'
 import { ImportListModal, ImportSummary } from './modals/import-list-modal'
 import { ImportDeckModal } from './modals/import-deck-modal'
@@ -528,6 +530,28 @@ export default class TcgBinderPlugin extends Plugin {
 			added += quantity
 		}
 		return { added, failed }
+	}
+
+	/**
+	 * Saves a user-provided image for a card without one (API gap, manual
+	 * card) into the binder folder and stamps it on the note. Returns the
+	 * app:// resource URL for immediate display.
+	 */
+	async attachCardImage(meta: CardMeta, data: ArrayBuffer, fileName: string): Promise<string> {
+		const ALLOWED = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif']
+		const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
+		if (!ALLOWED.includes(ext)) throw new Error(t('detail.image-invalid'))
+
+		const folder = normalizePath(`${this.settings.rootFolder}/cards/images`)
+		await ensureFolder(this.app, folder)
+		const base = sanitizeFileName(`${meta.name} ${meta.cardId}`)
+		let path = normalizePath(`${folder}/${base}.${ext}`)
+		for (let suffix = 2; this.app.vault.getAbstractFileByPath(path); suffix++) {
+			path = normalizePath(`${folder}/${base} ${suffix}.${ext}`)
+		}
+		const created = await this.app.vault.createBinary(path, data)
+		await this.cardNotes.setImage(meta.file, created.path, meta.name)
+		return this.app.vault.adapter.getResourcePath(created.path)
 	}
 
 	/**

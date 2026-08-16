@@ -140,12 +140,18 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 		return ids.map((id) => ({ id, name: sets.find((s) => s.id === id)?.name ?? id }))
 	}, [rows, sets])
 
+	/** Set collections keep qty-0 rows — they are the checklist. */
+	const isSetCollection = useMemo(() => plugin.store.getSetId(file) !== null, [plugin, file, version])
+
 	const changeQty = (row: Row, delta: number) => {
-		void plugin.collections.setQuantity(
-			file,
-			{ id: row.id, variant: row.variant, condition: row.condition },
-			row.qty + delta,
-		)
+		const key = { id: row.id, variant: row.variant, condition: row.condition }
+		const next = row.qty + delta
+		// In a regular collection a line at zero is no longer owned — drop it.
+		if (next <= 0 && !isSetCollection) {
+			void plugin.collections.removeEntry(file, key)
+			return
+		}
+		void plugin.collections.setQuantity(file, key, next)
 	}
 
 	const rekey = (row: Row, variant: CardVariant, condition: CardCondition) => {

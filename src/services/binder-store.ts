@@ -35,6 +35,13 @@ export class BinderStore {
 		return typeof role === 'string' && role.length > 0 ? role : null
 	}
 
+	/** The tracked set of a set collection, or null for regular collections. */
+	getSetId(file: TFile): string | null {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
+		const setId: unknown = frontmatter?.['set-id']
+		return typeof setId === 'string' && setId.length > 0 ? setId : null
+	}
+
 	createCollection(
 		name: string,
 		game: GameId = 'pokemon',

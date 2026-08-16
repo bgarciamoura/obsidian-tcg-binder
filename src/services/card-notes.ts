@@ -69,7 +69,7 @@ export class CardNotes {
 			number: stringOrNull(fm.number) ?? numberAsString(fm.number),
 			supertype,
 			rarity: stringOrNull(fm.rarity),
-			image: stringOrNull(fm.image),
+			image: this.resolveImage(stringOrNull(fm.image)),
 			priceMarket: typeof fm['price-market'] === 'number' ? fm['price-market'] : null,
 			priceUpdated: stringOrNull(fm['price-updated']),
 			legalities: stringArrayOrNull(fm.legalities),
@@ -151,19 +151,36 @@ export class CardNotes {
 	}
 
 	/**
-	 * Backfills the image on a card note: frontmatter always; a body embed
-	 * only when the body has none yet (the body belongs to the user).
+	 * `image` in frontmatter is either a remote URL or a vault path (user
+	 * uploads). Vault paths must be resolved to an app:// resource URL for
+	 * <img> rendering — and a dangling path renders as a broken image, so it
+	 * resolves to null instead.
+	 */
+	private resolveImage(value: string | null): string | null {
+		if (!value) return null
+		if (/^https?:\/\//.test(value)) return value
+		const path = normalizePath(value)
+		return this.app.vault.getFileByPath(path)
+			? this.app.vault.adapter.getResourcePath(path)
+			: null
+	}
+
+	/**
+	 * Sets the image on a card note (remote URL or vault path): frontmatter
+	 * always; a body embed only when the body has none yet (the body belongs
+	 * to the user).
 	 */
 	async setImage(file: TFile, image: string, cardName: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			fm.image = image
 		})
+		const embed = /^https?:\/\//.test(image) ? `![${cardName}](${image})` : `![[${image}]]`
 		await this.app.vault.process(file, (content) => {
 			if (content.includes('![')) return content
 			const frontmatter = /^---\n[\s\S]*?\n---\n/.exec(content)
 			if (!frontmatter) return content
 			const head = frontmatter[0]
-			return `${head}![${cardName}](${image})\n${content.slice(head.length)}`
+			return `${head}${embed}\n${content.slice(head.length)}`
 		})
 	}
 

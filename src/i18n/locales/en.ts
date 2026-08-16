@@ -160,4 +160,6 @@ export const en = {
 	'quick.session': '{count} cards this session',
 	'quick.change-set': 'Change set',
 	'deck.add-missing': 'Add to a collection',
+	'detail.add-image': 'Add an image',
+	'detail.image-invalid': 'Unsupported image format — use PNG, JPG, WEBP, GIF or AVIF',
 }

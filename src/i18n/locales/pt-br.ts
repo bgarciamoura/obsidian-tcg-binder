@@ -161,4 +161,6 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'quick.session': '{count} cartas nesta sessão',
 	'quick.change-set': 'Trocar set',
 	'deck.add-missing': 'Adicionar a uma coleção',
+	'detail.add-image': 'Adicionar uma imagem',
+	'detail.image-invalid': 'Formato de imagem não suportado — use PNG, JPG, WEBP, GIF ou AVIF',
 }

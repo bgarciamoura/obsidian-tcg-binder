@@ -1381,3 +1381,19 @@ select.tcgb-cond {
 .tcgb-quick-miss {
 	color: var(--text-error);
 }
+
+/* ============ Card image upload ============ */
+
+/* Card aspect ratio keeps the empty placeholder from collapsing. */
+.tcgb-detail-img-empty {
+	aspect-ratio: 63 / 88;
+}
+
+.tcgb-detail-upload {
+	width: 100%;
+	margin-top: var(--size-2-3);
+}
+
+.tcgb-detail-file {
+	display: none;
+}
