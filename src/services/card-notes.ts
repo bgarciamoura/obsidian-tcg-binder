@@ -1,7 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian'
 import { FRONTMATTER_TYPE_KEY } from '../constants'
 import type { CardData } from './card-data/card-data-source'
-import { ensureFolder, findAvailablePath, listMarkdownFilesIn } from '../utils/vault'
+import { ensureFolder, findAvailablePath, listMarkdownFilesIn, resolveImageSource } from '../utils/vault'
 import { sanitizeFileName } from '../utils/file-name'
 import { isBasicEnergy } from '../domain/deck-rules'
 import { canonicalSupertype } from '../domain/card-fields'
@@ -156,19 +156,9 @@ export class CardNotes {
 		return file
 	}
 
-	/**
-	 * `image` in frontmatter is either a remote URL or a vault path (user
-	 * uploads). Vault paths must be resolved to an app:// resource URL for
-	 * <img> rendering — and a dangling path renders as a broken image, so it
-	 * resolves to null instead.
-	 */
+	/** `image` in frontmatter is a remote URL or a vault path (user uploads). */
 	private resolveImage(value: string | null): string | null {
-		if (!value) return null
-		if (/^https?:\/\//.test(value)) return value
-		const path = normalizePath(value)
-		return this.app.vault.getFileByPath(path)
-			? this.app.vault.adapter.getResourcePath(path)
-			: null
+		return resolveImageSource(this.app, value)
 	}
 
 	/**

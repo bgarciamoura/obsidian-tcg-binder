@@ -1397,3 +1397,123 @@ select.tcgb-cond {
 .tcgb-detail-file {
 	display: none;
 }
+
+/* ============ Dashboard list delete ============ */
+
+.tcgb-list-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	margin-bottom: var(--size-2-2);
+}
+
+.tcgb-list-item .tcgb-list-row {
+	flex: 1;
+	min-width: 0;
+	margin-bottom: 0;
+}
+
+.tcgb-list-item:hover .tcgb-row-action {
+	opacity: 1;
+}
+
+.tcgb-list-delete:hover {
+	color: var(--text-error);
+}
+
+/* ============ Back-to-top FAB ============ */
+
+.tcgb-fab-anchor {
+	position: sticky;
+	bottom: var(--size-4-4);
+	height: 0;
+	display: flex;
+	justify-content: flex-end;
+	z-index: 10;
+}
+
+.tcgb-fab {
+	transform: translateY(-100%);
+	width: 2.6em;
+	height: 2.6em;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	line-height: 1;
+	cursor: pointer;
+	box-shadow: var(--shadow-s);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 150ms ease-out;
+}
+
+.tcgb-fab-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.tcgb-fab:hover {
+	background: var(--background-modifier-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tcgb-fab {
+		transition: none;
+	}
+}
+
+/* ============ Covers, wishlist acquire ============ */
+
+/* Cover as a banner: left half of the row, full height. */
+.tcgb-list-item .tcgb-list-row {
+	position: relative;
+	overflow: hidden;
+}
+
+.tcgb-list-row-covered {
+	min-height: 84px;
+	padding-left: calc(50% + var(--size-4-4));
+}
+
+.tcgb-list-cover {
+	position: absolute;
+	/* 1px inset so the art sits inside the card border, not over it. */
+	top: 1px;
+	left: 1px;
+	bottom: 1px;
+	height: calc(100% - 2px);
+	width: calc(50% + 14px);
+	object-fit: cover;
+	/* Portrait card scans: aim at the artwork band, not the frame. */
+	object-position: 50% 22%;
+	border-radius: calc(var(--radius-m) - 1px) 0 0 calc(var(--radius-m) - 1px);
+	/* Right edge slants like a "/" — top corner further right than bottom. */
+	clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%);
+}
+
+.tcgb-acquire:hover {
+	color: var(--color-green);
+}
+
+.tcgb-missing-wishlist {
+	margin-left: auto;
+	font-size: var(--font-ui-small);
+}
+
+/* Cover position preview — same banner shape as the dashboard rows. */
+.tcgb-cover-preview {
+	height: 84px;
+	margin-bottom: var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	overflow: hidden;
+}
+
+.tcgb-cover-preview img {
+	width: 50%;
+	height: 100%;
+	object-fit: cover;
+	clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%);
+}

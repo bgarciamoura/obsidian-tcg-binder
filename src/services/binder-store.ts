@@ -42,6 +42,39 @@ export class BinderStore {
 		return typeof setId === 'string' && setId.length > 0 ? setId : null
 	}
 
+	/** Raw cover image ref (remote URL or vault path) of a collection/deck. */
+	getCover(file: TFile): string | null {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
+		const cover: unknown = frontmatter?.cover
+		return typeof cover === 'string' && cover.length > 0 ? cover : null
+	}
+
+	async setCover(file: TFile, cover: string): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm.cover = cover
+		})
+	}
+
+	/** Vertical crop position of the cover art (0 = top, 100 = bottom). */
+	getCoverPosition(file: TFile): number {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
+		const pos: unknown = frontmatter?.['cover-pos']
+		return typeof pos === 'number' && pos >= 0 && pos <= 100 ? pos : 22
+	}
+
+	async setCoverPosition(file: TFile, pos: number): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm['cover-pos'] = Math.max(0, Math.min(100, Math.round(pos)))
+		})
+	}
+
+	async removeCover(file: TFile): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			delete fm.cover
+			delete fm['cover-pos']
+		})
+	}
+
 	createCollection(
 		name: string,
 		game: GameId = 'pokemon',

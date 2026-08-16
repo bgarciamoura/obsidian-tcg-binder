@@ -27,6 +27,7 @@ import type { SetInfo } from './services/card-data/card-data-source'
 import { pokemonTcgIoImageCandidates } from './services/card-data/fallback-images'
 import { urlExists } from './services/card-data/http'
 import { CardListLine, parseCardList, serializeCardList } from './domain/card-list'
+import { functionalKey } from './domain/text-match'
 import { parseCsv } from './domain/csv'
 import { CsvCardRow, mapCsvRows } from './domain/csv-import'
 import { t } from './i18n'
@@ -643,13 +644,96 @@ export default class TcgBinderPlugin extends Plugin {
 
 		const deck = await this.store.createDeck(name || t('default.new-deck-name'))
 		let added = 0
+		const deckLines: { id: string; link: string; qty: number }[] = []
 		for (const { card, quantity } of resolved) {
 			const cardFile = await this.ensureHydratedCardNote(card)
 			await this.decks.addEntry(deck, card.id, `[[${cardFile.basename}]]`, quantity)
+			deckLines.push({ id: card.id, link: `[[${cardFile.basename}]]`, qty: quantity })
 			added += quantity
 		}
 		new Notice(t('notice.deck-created'))
+		await this.wishlistMissingFromDeck(deck, deckLines)
 		return { added, failed }
+	}
+
+	/**
+	 * Copies available across every non-wishlist collection, keyed by
+	 * functional card name. With "reserve deck copies" on, quantities used by
+	 * decks (other than `excludeDeck`) are subtracted — may go negative.
+	 */
+	private ownedByName(index: Map<string, CardMeta>, excludeDeck?: TFile): Map<string, number> {
+		const byName = new Map<string, number>()
+		for (const collection of this.store.listFiles('collection')) {
+			if (this.store.getRole(collection) === 'wishlist') continue
+			for (const entry of this.collections.readEntries(collection)) {
+				const meta = index.get(entry.id)
+				const key = functionalKey(meta?.nameEn ?? null, meta?.name ?? null, entry.id)
+				byName.set(key, (byName.get(key) ?? 0) + entry.qty)
+			}
+		}
+		if (this.settings.reserveDeckCopies) {
+			for (const deck of this.store.listFiles('deck')) {
+				if (excludeDeck && deck.path === excludeDeck.path) continue
+				for (const entry of this.decks.readEntries(deck)) {
+					const meta = index.get(entry.id)
+					const key = functionalKey(meta?.nameEn ?? null, meta?.name ?? null, entry.id)
+					byName.set(key, (byName.get(key) ?? 0) - entry.qty)
+				}
+			}
+		}
+		return byName
+	}
+
+	/** After a deck import: whatever the collections can't cover goes to the wishlist. */
+	private async wishlistMissingFromDeck(
+		deck: TFile,
+		deckLines: { id: string; link: string; qty: number }[],
+	): Promise<void> {
+		const index = this.cardNotes.buildIndex()
+		const owned = this.ownedByName(index, deck)
+		// Deck lines of the same functional card share one owned pool.
+		const needed = new Map<string, { id: string; link: string; qty: number }>()
+		for (const line of deckLines) {
+			const meta = index.get(line.id)
+			const key = functionalKey(meta?.nameEn ?? null, meta?.name ?? null, line.id)
+			const current = needed.get(key)
+			if (current) current.qty += line.qty
+			else needed.set(key, { ...line })
+		}
+		const missing = [...needed.entries()]
+			// Reserved copies can drive availability negative — clamp so one
+			// deck's missing count never exceeds what it actually needs.
+			.map(([key, line]) => ({ ...line, qty: line.qty - Math.max(0, owned.get(key) ?? 0) }))
+			.filter((line) => line.qty > 0)
+		const count = await this.addMissingToWishlist(missing)
+		if (count > 0) new Notice(t('wishlist.added', { count }))
+	}
+
+	/**
+	 * Adds missing cards (quantities already net of owned copies) to the
+	 * wishlist, creating it on first use. Idempotent: only tops the wishlist
+	 * up to the needed quantity, so re-running never inflates it.
+	 */
+	async addMissingToWishlist(items: { id: string; link: string; qty: number }[]): Promise<number> {
+		if (items.length === 0) return 0
+		let wishlist = this.store.listFiles('collection').find(
+			(file) => this.store.getRole(file) === 'wishlist',
+		)
+		wishlist ??= await this.store.createCollection(t('default.new-wishlist-name'), 'pokemon', 'wishlist')
+
+		const wishlisted = new Map<string, number>()
+		for (const entry of this.collections.readEntries(wishlist)) {
+			wishlisted.set(entry.id, (wishlisted.get(entry.id) ?? 0) + entry.qty)
+		}
+
+		let added = 0
+		for (const item of items) {
+			const delta = item.qty - (wishlisted.get(item.id) ?? 0)
+			if (delta <= 0) continue
+			await this.collections.addEntry(wishlist, item.id, item.link, delta, 'normal', 'NM')
+			added += delta
+		}
+		return added
 	}
 
 	openExportDeck(): void {

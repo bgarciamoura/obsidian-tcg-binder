@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
-import type { TFile } from 'obsidian'
+import { Menu, Notice, type TFile } from 'obsidian'
 import { useApp } from '../context'
+import { CoverPickerModal } from '../modals/cover-picker-modal'
+import { CoverPositionModal } from '../modals/cover-position-modal'
+import { resolveImageSource } from '../utils/vault'
 import { t } from '../i18n'
 import { useState } from 'react'
 import { validateDeck, validateDeckLegality } from '../domain/deck-rules'
@@ -86,8 +89,22 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 				}
 			}
 		}
+		// "Reserve deck copies": what other decks use is not available here.
+		if (plugin.settings.reserveDeckCopies) {
+			for (const deck of plugin.store.listFiles('deck')) {
+				if (deck.path === file.path) continue
+				for (const entry of plugin.decks.readEntries(deck)) {
+					byId.set(entry.id, (byId.get(entry.id) ?? 0) - entry.qty)
+					const meta = cardIndex.get(entry.id)
+					if (meta) {
+						const key = functionalKey(meta.nameEn, meta.name, entry.id)
+						byName.set(key, (byName.get(key) ?? 0) - entry.qty)
+					}
+				}
+			}
+		}
 		return { byName, byId }
-	}, [plugin, version, cardIndex])
+	}, [plugin, version, cardIndex, file])
 
 	const missing = useMemo(() => {
 		// Deck lines of the same name share one owned pool — aggregate first.
@@ -100,7 +117,9 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		}
 		return [...neededByName.entries()]
 			.map(([key, { qty, row }]) => {
-				const available = owned.byName.get(key) ?? owned.byId.get(row.id) ?? 0
+				// Clamp: reserved copies can push availability negative, but a
+				// deck can never miss more copies than it needs.
+				const available = Math.max(0, owned.byName.get(key) ?? owned.byId.get(row.id) ?? 0)
 				return { ...row, missingQty: Math.max(0, qty - available) }
 			})
 			.filter((row) => row.missingQty > 0)
@@ -139,6 +158,55 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		new CardDetailModal(app, plugin, detailMetas, Math.max(0, start)).open()
 	}
 
+	const pickCover = () => {
+		const candidates = detailMetas.filter((meta) => meta.image !== null)
+		new CoverPickerModal(app, candidates, (meta) => {
+			const raw = meta.localImagePath ?? (meta.image && /^https?:\/\//.test(meta.image) ? meta.image : null)
+			if (!raw) return
+			void plugin.store.setCover(file, raw).then(() => {
+				new Notice(t('notice.cover-set'))
+			})
+		}).open()
+	}
+
+	const showCoverMenu = (event: MouseEvent) => {
+		const menu = new Menu()
+		menu.addItem((item) => {
+			item.setTitle(t('cover.choose')).setIcon('image').onClick(pickCover)
+		})
+		if (plugin.store.getCover(file)) {
+			menu.addItem((item) => {
+				item.setTitle(t('cover.position'))
+					.setIcon('move-vertical')
+					.onClick(() => {
+						const url = resolveImageSource(app, plugin.store.getCover(file))
+						if (!url) return
+						new CoverPositionModal(app, url, plugin.store.getCoverPosition(file), (pos) => {
+							void plugin.store.setCoverPosition(file, pos)
+						}).open()
+					})
+			})
+			menu.addItem((item) => {
+				item.setTitle(t('cover.remove'))
+					.setIcon('trash')
+					.onClick(() => {
+						void plugin.store.removeCover(file).then(() => {
+							new Notice(t('notice.cover-removed'))
+						})
+					})
+			})
+		}
+		menu.showAtMouseEvent(event)
+	}
+
+	const missingToWishlist = () => {
+		void plugin
+			.addMissingToWishlist(missing.map((row) => ({ id: row.id, link: row.link, qty: row.missingQty })))
+			.then((count) => {
+				new Notice(count > 0 ? t('wishlist.added', { count }) : t('wishlist.covered'))
+			})
+	}
+
 	return (
 		<div className="tcgb-root">
 			<div className="tcgb-view-header">
@@ -170,6 +238,16 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 					onClick={() => setMode((m) => (m === 'list' ? 'grid' : 'list'))}
 				>
 					{mode === 'list' ? '▦' : '≣'}
+				</button>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('cover.set')}
+					aria-label={t('cover.set')}
+					onClick={(event) => {
+						showCoverMenu(event.nativeEvent)
+					}}
+				>
+					🖼
 				</button>
 			</div>
 
@@ -282,6 +360,11 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 				<h3 className="tcgb-section-title">
 					{t('deck.missing')}
 					{missing.length > 0 && <span className="tcgb-count-pill">{missing.length}</span>}
+					{missing.length > 0 && (
+						<button className="tcgb-btn tcgb-missing-wishlist" onClick={missingToWishlist}>
+							{t('deck.missing-to-wishlist')}
+						</button>
+					)}
 				</h3>
 				{missing.length === 0 ? (
 					<p className="tcgb-empty">{t('deck.missing-none')}</p>

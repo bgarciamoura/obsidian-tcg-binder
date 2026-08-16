@@ -39,6 +39,12 @@ export interface TcgBinderSettings {
 	defaultViewMode: ViewMode
 	/** Optional pokemontcg.io key — only raises rate limits. */
 	pokemonTcgApiKey: string
+	/**
+	 * When on, cards used by other decks are treated as unavailable in
+	 * missing-cards math — for players who keep every deck assembled.
+	 * Off (default) any owned copy satisfies every deck.
+	 */
+	reserveDeckCopies: boolean
 }
 
 export const DEFAULT_SETTINGS: TcgBinderSettings = {
@@ -47,6 +53,7 @@ export const DEFAULT_SETTINGS: TcgBinderSettings = {
 	cardLanguage: 'en',
 	defaultViewMode: 'list',
 	pokemonTcgApiKey: '',
+	reserveDeckCopies: false,
 }
 
 export class TcgBinderSettingTab extends PluginSettingTab {
@@ -103,6 +110,15 @@ export class TcgBinderSettingTab extends PluginSettingTab {
 					key: 'dataSource',
 					defaultValue: DEFAULT_SETTINGS.dataSource,
 					options: { tcgdex: t('source.tcgdex'), 'pokemontcg-io': t('source.pokemontcg-io') },
+				},
+			},
+			{
+				name: t('settings.reserve-decks.name'),
+				desc: t('settings.reserve-decks.desc'),
+				control: {
+					type: 'toggle',
+					key: 'reserveDeckCopies',
+					defaultValue: DEFAULT_SETTINGS.reserveDeckCopies,
 				},
 			},
 			{
@@ -179,6 +195,17 @@ export class TcgBinderSettingTab extends PluginSettingTab {
 					this.plugin.settings.cardLanguage = TCGDEX_LANGUAGES.includes(value as TcgdexLanguage)
 						? (value as TcgdexLanguage)
 						: 'en'
+					await this.plugin.saveSettings()
+				})
+			})
+
+		new Setting(containerEl)
+			.setName(t('settings.reserve-decks.name'))
+			.setDesc(t('settings.reserve-decks.desc'))
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.reserveDeckCopies)
+				toggle.onChange(async (value) => {
+					this.plugin.settings.reserveDeckCopies = value
 					await this.plugin.saveSettings()
 				})
 			})

@@ -30,6 +30,18 @@ export async function ensureFolder(app: App, path: string): Promise<void> {
 	}
 }
 
+/**
+ * Resolves an image reference from frontmatter for <img> display: remote
+ * URLs pass through, vault paths become app:// resource URLs. A dangling
+ * vault path resolves to null instead of rendering a broken image.
+ */
+export function resolveImageSource(app: App, value: string | null): string | null {
+	if (!value) return null
+	if (/^https?:\/\//.test(value)) return value
+	const path = normalizePath(value)
+	return app.vault.getFileByPath(path) ? app.vault.adapter.getResourcePath(path) : null
+}
+
 /** Returns `<folder>/<name>.md`, suffixing " 2", " 3", ... on collisions. */
 export function findAvailablePath(app: App, folder: string, name: string): string {
 	let candidate = normalizePath(`${folder}/${name}.md`)

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Notice, TFile } from 'obsidian'
+import { Menu, Notice, TFile } from 'obsidian'
 import { useApp } from '../context'
+import { CoverPositionModal } from '../modals/cover-position-modal'
+import { resolveImageSource } from '../utils/vault'
 import { t } from '../i18n'
 import { CARD_CONDITIONS, CARD_VARIANTS } from '../types'
 import type { CardCondition, CardVariant } from '../types'
@@ -13,6 +15,7 @@ import type { CardMeta } from '../services/card-notes'
 import type { StoredEntry } from '../services/collection-store'
 import { FilePickerModal } from '../modals/file-picker-modal'
 import { CardDetailModal } from '../modals/card-detail-modal'
+import { CoverPickerModal } from '../modals/cover-picker-modal'
 import type TcgBinderPlugin from '../main'
 
 interface CollectionViewProps {
@@ -202,6 +205,80 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 		new CardDetailModal(app, plugin, detailMetas, Math.max(0, start)).open()
 	}
 
+	const pickCover = () => {
+		const candidates = detailMetas.filter((meta) => meta.image !== null)
+		new CoverPickerModal(app, candidates, (meta) => {
+			const raw = meta.localImagePath ?? (meta.image && /^https?:\/\//.test(meta.image) ? meta.image : null)
+			if (!raw) return
+			void plugin.store.setCover(file, raw).then(() => {
+				new Notice(t('notice.cover-set'))
+			})
+		}).open()
+	}
+
+	const showCoverMenu = (event: MouseEvent) => {
+		const menu = new Menu()
+		menu.addItem((item) => {
+			item.setTitle(t('cover.choose')).setIcon('image').onClick(pickCover)
+		})
+		if (plugin.store.getCover(file)) {
+			menu.addItem((item) => {
+				item.setTitle(t('cover.position'))
+					.setIcon('move-vertical')
+					.onClick(() => {
+						const url = resolveImageSource(app, plugin.store.getCover(file))
+						if (!url) return
+						new CoverPositionModal(app, url, plugin.store.getCoverPosition(file), (pos) => {
+							void plugin.store.setCoverPosition(file, pos)
+						}).open()
+					})
+			})
+			menu.addItem((item) => {
+				item.setTitle(t('cover.remove'))
+					.setIcon('trash')
+					.onClick(() => {
+						void plugin.store.removeCover(file).then(() => {
+							new Notice(t('notice.cover-removed'))
+						})
+					})
+			})
+		}
+		menu.showAtMouseEvent(event)
+	}
+
+	const isWishlist = plugin.store.getRole(file) === 'wishlist'
+
+	/** Wishlist only: the card was bought — move the line into a real collection. */
+	const acquire = (row: Row) => {
+		const targets = plugin.store
+			.listFiles('collection')
+			.filter((f) => f.path !== file.path && plugin.store.getRole(f) !== 'wishlist')
+		if (targets.length === 0) {
+			new Notice(t('notice.no-other-collection'))
+			return
+		}
+		new FilePickerModal(app, targets, t('picker.collection'), (target) => {
+			void (async () => {
+				await plugin.collections.addEntry(
+					target,
+					row.id,
+					row.link,
+					Math.max(1, row.qty),
+					row.variant,
+					row.condition,
+				)
+				await plugin.collections.removeEntry(file, {
+					id: row.id,
+					variant: row.variant,
+					condition: row.condition,
+				})
+				new Notice(
+					t('wishlist.acquired', { name: row.meta?.name ?? row.id, collection: target.basename }),
+				)
+			})()
+		}).open()
+	}
+
 	/** Moves the whole line to another collection, chosen via fuzzy picker. */
 	const moveToCollection = (row: Row) => {
 		const targets = plugin.store.listFiles('collection').filter((f) => f.path !== file.path)
@@ -328,6 +405,16 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 				>
 					{mode === 'list' ? '▦' : '≣'}
 				</button>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('cover.set')}
+					aria-label={t('cover.set')}
+					onClick={(event) => {
+						showCoverMenu(event.nativeEvent)
+					}}
+				>
+					🖼
+				</button>
 			</div>
 
 			{filtered.length === 0 ? (
@@ -374,6 +461,16 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 							<div className="tcgb-tile-footer">
 								<span className={`tcgb-cond tcgb-cond-${row.condition}`}>{row.condition}</span>
 								<span className="tcgb-qty">
+									{isWishlist && (
+										<button
+											className="tcgb-qty-btn tcgb-acquire"
+											aria-label={t('wishlist.acquire')}
+											title={t('wishlist.acquire')}
+											onClick={() => acquire(row)}
+										>
+											✓
+										</button>
+									)}
 									<button className="tcgb-qty-btn" onClick={() => changeQty(row, -1)}>
 										−
 									</button>
@@ -486,6 +583,16 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 									</td>
 									<td className="tcgb-cell-num tcgb-cell-muted">{row.added ?? '—'}</td>
 									<td className="tcgb-cell-actions">
+										{isWishlist && (
+											<button
+												className="tcgb-row-action tcgb-acquire"
+												aria-label={t('wishlist.acquire')}
+												title={t('wishlist.acquire')}
+												onClick={() => acquire(row)}
+											>
+												✓
+											</button>
+										)}
 										<button
 											className="tcgb-row-action"
 											aria-label={t('view.move')}
