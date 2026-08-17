@@ -1,4 +1,5 @@
 import type { DeckEntry } from '../types'
+import { functionalKey } from './text-match'
 
 /**
  * Construction rules for a deck. Kept as data so other games/formats
@@ -89,6 +90,31 @@ export interface LegalityEntry {
 	name: string
 	/** Formats where the card is legal, or null when unknown (e.g. manual cards). */
 	legalities: string[] | null
+}
+
+export interface PrintingLegality {
+	id: string
+	name: string | null
+	nameEn: string | null
+	legalities: string[] | null
+}
+
+/**
+ * Official reprint rule: a card is legal in a format if ANY printing of the
+ * same functional card (name across printings/languages) is legal. Builds
+ * the union of known legalities per functional name, so an old printing
+ * inherits legality from a current reprint present in the card index.
+ */
+export function legalitiesByFunctionalName(printings: PrintingLegality[]): Map<string, Set<string>> {
+	const byName = new Map<string, Set<string>>()
+	for (const printing of printings) {
+		if (!printing.legalities || printing.legalities.length === 0) continue
+		const key = functionalKey(printing.nameEn, printing.name, printing.id)
+		const set = byName.get(key) ?? new Set<string>()
+		for (const format of printing.legalities) set.add(format)
+		byName.set(key, set)
+	}
+	return byName
 }
 
 /**

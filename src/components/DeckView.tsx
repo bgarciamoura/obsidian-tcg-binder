@@ -1,12 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Menu, Notice, type TFile } from 'obsidian'
 import { useApp } from '../context'
 import { CoverPickerModal } from '../modals/cover-picker-modal'
 import { CoverPositionModal } from '../modals/cover-position-modal'
 import { resolveImageSource } from '../utils/vault'
 import { t } from '../i18n'
-import { useState } from 'react'
-import { validateDeck, validateDeckLegality } from '../domain/deck-rules'
+import { legalitiesByFunctionalName, validateDeck, validateDeckLegality } from '../domain/deck-rules'
 import { functionalKey } from '../domain/text-match'
 import type { ViewMode } from '../settings'
 import type { CardMeta } from '../services/card-notes'
@@ -51,6 +50,31 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 
 	const total = useMemo(() => rows.reduce((sum, row) => sum + row.qty, 0), [rows])
 
+	/**
+	 * Reprint rule: legality per FUNCTIONAL name, unioned across every card
+	 * note in the binder — an old printing is legal when a current same-name
+	 * reprint (in this deck or any collection) is.
+	 */
+	const legalByName = useMemo(
+		() =>
+			legalitiesByFunctionalName(
+				[...cardIndex.values()].map((meta) => ({
+					id: meta.cardId,
+					name: meta.name,
+					nameEn: meta.nameEn,
+					legalities: meta.legalities,
+				})),
+			),
+		[cardIndex],
+	)
+
+	const effectiveLegalities = (row: Row): string[] | null => {
+		const key = functionalKey(row.meta?.nameEn ?? null, row.meta?.name ?? null, row.id)
+		const byName = legalByName.get(key)
+		if (byName && byName.size > 0) return [...byName]
+		return row.meta?.legalities ?? null
+	}
+
 	const issues = useMemo(() => {
 		const deckEntries = rows.map((row) => ({
 			card: { game: 'pokemon' as const, cardId: row.id, name: row.meta?.name ?? row.id },
@@ -59,10 +83,24 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		}))
 		const legalityEntries = rows.map((row) => ({
 			name: row.meta?.name ?? row.id,
-			legalities: row.meta?.legalities ?? null,
+			legalities: effectiveLegalities(row),
 		}))
 		return [...validateDeck(deckEntries), ...validateDeckLegality(legalityEntries, format)]
-	}, [rows, format])
+	}, [rows, format, legalByName])
+
+	// Cards still illegal after the local union get checked against the card
+	// database for a legal reprint — a hit stamps the note and revalidates.
+	useEffect(() => {
+		if (format !== 'standard' && format !== 'expanded') return
+		const flagged = rows
+			.filter((row) => {
+				const legalities = effectiveLegalities(row)
+				return row.meta !== null && legalities !== null && !legalities.includes(format)
+			})
+			.map((row) => row.meta)
+			.filter((meta): meta is CardMeta => meta !== null)
+		if (flagged.length > 0) void plugin.checkReprintLegalities(flagged, format)
+	}, [rows, format, legalByName, plugin])
 
 	const totalPrice = useMemo(
 		() => rows.reduce((sum, row) => sum + row.qty * (row.meta?.priceMarket ?? 0), 0),

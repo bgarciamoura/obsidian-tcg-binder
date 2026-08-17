@@ -78,7 +78,12 @@ export class CardNotes {
 				rawImage && !/^https?:\/\//.test(rawImage) ? normalizePath(rawImage) : null,
 			priceMarket: typeof fm['price-market'] === 'number' ? fm['price-market'] : null,
 			priceUpdated: stringOrNull(fm['price-updated']),
-			legalities: stringArrayOrNull(fm.legalities),
+			// Reprint rule: legality granted by a current same-name printing
+			// (stamped as legal-by-reprint) counts alongside the printing's own.
+			legalities: unionOrNull(
+				stringArrayOrNull(fm.legalities),
+				stringArrayOrNull(fm['legal-by-reprint']),
+			),
 			// Name fallback repairs notes created before sources flagged basics
 			// correctly; localized notes match through the English name.
 			copyLimitExempt:
@@ -185,6 +190,17 @@ export class CardNotes {
 		})
 	}
 
+	/**
+	 * Stamps formats this card is legal in via a current reprint of the same
+	 * name (official reprint rule) — kept separate from the printing's own
+	 * `legalities` so the factual per-printing data stays intact.
+	 */
+	async setReprintLegalities(file: TFile, formats: string[]): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm['legal-by-reprint'] = formats
+		})
+	}
+
 	/** Stamps the canonical English name on a note that predates the field. */
 	async setNameEn(file: TFile, nameEn: string): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -214,4 +230,9 @@ function stringArrayOrNull(value: unknown): string[] | null {
 	if (!Array.isArray(value)) return null
 	const strings = value.filter((item): item is string => typeof item === 'string')
 	return strings.length > 0 ? strings : null
+}
+
+function unionOrNull(a: string[] | null, b: string[] | null): string[] | null {
+	if (!a && !b) return null
+	return [...new Set([...(a ?? []), ...(b ?? [])])]
 }

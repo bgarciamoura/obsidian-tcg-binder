@@ -567,6 +567,45 @@ export default class TcgBinderPlugin extends Plugin {
 		return { path: created.path, resourceUrl: this.app.vault.adapter.getResourcePath(created.path) }
 	}
 
+	/** Cards already checked for reprint legality this session — misses included. */
+	private readonly reprintChecked = new Set<string>()
+
+	/**
+	 * Reprint rule via the card database: for cards whose known printings are
+	 * not legal in `format`, searches same-name printings (newest first) and
+	 * stamps `legal-by-reprint` on the note when a legal one exists. Notes
+	 * changing retriggers validation; misses are not retried this session.
+	 */
+	async checkReprintLegalities(metas: CardMeta[], format: string): Promise<void> {
+		const source = this.activeSource()
+		for (const meta of metas) {
+			if (this.reprintChecked.has(meta.cardId)) continue
+			this.reprintChecked.add(meta.cardId)
+			const searchName = meta.nameEn ?? meta.name
+			const target = searchName.toLowerCase()
+			try {
+				const results = await source.searchCards({ name: searchName, pageSize: 40 })
+				// Newest printings first (both sources sort by release desc) —
+				// the current reprint is what proves legality, so cap the
+				// hydration cost at a handful of candidates.
+				for (const candidate of results.slice(0, 8)) {
+					if (candidate.id === meta.cardId) continue
+					const full = candidate.legalities.length > 0 ? candidate : await source.getCard(candidate.id)
+					if (!full) continue
+					const candidateName = (full.nameEn ?? full.name).toLowerCase()
+					if (candidateName !== target) continue
+					if (full.legalities.includes(format)) {
+						await this.cardNotes.setReprintLegalities(meta.file, full.legalities)
+						break
+					}
+				}
+			} catch (error) {
+				if (error instanceof RateLimitError) return
+				console.error(`[TCG Binder] reprint legality check failed for ${meta.cardId}`, error)
+			}
+		}
+	}
+
 	/**
 	 * Adds an already-known card (existing note) to a collection — used by the
 	 * deck view's "missing from collection" list after the cards were bought.
