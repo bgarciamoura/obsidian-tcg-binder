@@ -185,26 +185,53 @@ export class TcgdexSource implements CardDataSource {
 	}
 
 	/**
-	 * Anchor + token search: the API's `like:` is an exact substring match,
-	 * so multi-word queries hit the API with the most selective token and the
-	 * remaining tokens are matched client-side (accent-insensitive). Lets
-	 * "Rocky F Energy" find "Rocky Fighting Energy".
+	 * Name search against the API's `like:` (exact substring match), in two
+	 * attempts:
+	 *
+	 * 1. The full query as one substring — by far the most selective when the
+	 *    user types the name in order ("Energia da Equipe Rocket" → 2 hits).
+	 * 2. Anchor token + client-side token filtering (accent-insensitive),
+	 *    walking up to 3 result pages: common anchors ("Equipe", 171 cards)
+	 *    overflow the 100-item page and the wanted card may sit on page 2 —
+	 *    a real miss found with Team Rocket's Energy. Also lets "Rocky F
+	 *    Energy" find "Rocky Fighting Energy".
 	 */
 	private async nameSearch(query: CardSearchQuery, lang: TcgdexLanguage): Promise<CardData[]> {
 		const raw = (query.name ?? '').trim()
 		const anchor = searchAnchor(raw)
 		if (!anchor) return []
 
-		const params = new URLSearchParams()
-		params.set('name', `like:${anchor}`)
-		params.set('pagination:page', String(query.page ?? 1))
-		params.set('pagination:itemsPerPage', String(query.pageSize ?? 100))
-		const body = await requestJson(`${this.base(lang)}/cards?${params.toString()}`)
-		let resumes = Array.isArray(body) ? (body as TdxResume[]) : []
-		if (anchor !== raw) {
-			resumes = resumes.filter((resume) => matchesAllTokens(resume.name, raw))
+		const pageSize = query.pageSize ?? 100
+		if (/\s/.test(raw)) {
+			const exact = await this.fetchNamePage(raw, lang, query.page ?? 1, pageSize)
+			if (exact.length > 0) {
+				return exact.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
+			}
 		}
-		return resumes.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
+
+		const resumes: TdxResume[] = []
+		for (let page = query.page ?? 1, fetched = 0; fetched < 3; page++, fetched++) {
+			const batch = await this.fetchNamePage(anchor, lang, page, pageSize)
+			resumes.push(...batch)
+			if (batch.length < pageSize) break
+		}
+		const filtered =
+			anchor !== raw ? resumes.filter((resume) => matchesAllTokens(resume.name, raw)) : resumes
+		return filtered.map((resume) => this.resumeToCard(resume, resume.id.split('-')[0]))
+	}
+
+	private async fetchNamePage(
+		name: string,
+		lang: TcgdexLanguage,
+		page: number,
+		pageSize: number,
+	): Promise<TdxResume[]> {
+		const params = new URLSearchParams()
+		params.set('name', `like:${name}`)
+		params.set('pagination:page', String(page))
+		params.set('pagination:itemsPerPage', String(pageSize))
+		const body = await requestJson(`${this.base(lang)}/cards?${params.toString()}`)
+		return Array.isArray(body) ? (body as TdxResume[]) : []
 	}
 
 	/** Newest printings first — the recent set is almost always the wanted one. */
