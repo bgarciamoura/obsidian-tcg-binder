@@ -75,7 +75,7 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 
 O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
 
-### Pós-lançamento — entregas até 1.8.0 (2026-08)
+### Pós-lançamento — entregas até 1.10.0 (2026-08)
 
 Notas completas por versão em `docs/release-notes/`. Destaques desde o lançamento:
 
@@ -87,6 +87,9 @@ Notas completas por versão em `docs/release-notes/`. Destaques desde o lançame
 - [x] **1.7.0** — zerar quantidade remove a linha (coleções de set preservam o checklist); **upload de imagem própria** para cartas sem scan (salva no vault, embed na nota)
 - [x] **1.7.1** — substituir imagem enviada (troca embed, arquivo antigo vai à lixeira)
 - [x] **1.8.0** — **capas** de coleção/deck no dashboard (banner com corte diagonal, posição ajustável, remoção); **wishlist automática** na importação de deck + botão manual (idempotente); fluxo **"marcar como adquirida"** (wishlist → coleção); excluir deck/coleção pelo dashboard com confirmação; botão voltar ao topo; setting **"Reservar cartas usadas em decks"**
+- [x] **1.8.1** — **regra de reimpressão** na legalidade de deck: união por nome canônico entre impressões (local + lookup na API com carimbo `legal-by-reprint` persistente) — impressão antiga de carta reimpressa deixa de ser falso positivo
+- [x] **1.9.0** — busca por nome corrigida (frase completa como substring + varredura de páginas — cartas além da 1ª página da API eram perdidas); **variantes completas de colecionador** (12): +liga, foil de liga, padrões Poké Ball/Master Ball, 1ª edição ±holo, pré-lançamento, staff
+- [x] **1.10.0** — **busca global no dashboard**: todas as coleções e decks de uma vez, com qty/variante/condição por linha, atalho para a lista dona e viewer navegável; sem acento e por nome em inglês, 100% offline
 
 ## Modelo de dados (proposta — validar na Fase 1)
 
