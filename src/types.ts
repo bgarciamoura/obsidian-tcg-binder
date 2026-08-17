@@ -4,7 +4,20 @@ export type GameId = 'pokemon'
 /** Kinds of vault notes managed by the plugin (value of the marker frontmatter key). */
 export type BinderFileType = 'collection' | 'deck' | 'card'
 
-export const CARD_VARIANTS = ['normal', 'holo', 'reverse-holo', 'promo'] as const
+export const CARD_VARIANTS = [
+	'normal',
+	'holo',
+	'reverse-holo',
+	'poke-ball',
+	'master-ball',
+	'first-edition',
+	'first-edition-holo',
+	'promo',
+	'league',
+	'league-foil',
+	'prerelease',
+	'staff',
+] as const
 export type CardVariant = (typeof CARD_VARIANTS)[number]
 
 /** TCG grading shorthand: Near Mint, Lightly/Moderately/Heavily Played, Damaged. */
