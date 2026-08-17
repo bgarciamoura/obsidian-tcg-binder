@@ -194,4 +194,7 @@ export const en = {
 	'wishlist.acquired': '{name} acquired → {collection}',
 	'settings.reserve-decks.name': 'Reserve cards used in decks',
 	'settings.reserve-decks.desc': 'Treat copies used by other decks as unavailable when computing what a deck is missing — for players who keep every deck assembled. Off, any owned copy satisfies every deck.',
+	'root.search': 'Search every collection and deck',
+	'root.search-results': 'In collections',
+	'root.search-decks': 'In decks',
 }

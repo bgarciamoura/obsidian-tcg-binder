@@ -1517,3 +1517,36 @@ select.tcgb-cond {
 	object-fit: cover;
 	clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%);
 }
+
+/* ============ Global dashboard search ============ */
+
+.tcgb-global-search {
+	width: 100%;
+	margin-bottom: var(--size-4-3);
+	padding: var(--size-2-3) var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.tcgb-global-search:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
+}
+
+.tcgb-result-loc {
+	flex-shrink: 0;
+	padding: 0 var(--size-2-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+}
+
+.tcgb-result-loc:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}

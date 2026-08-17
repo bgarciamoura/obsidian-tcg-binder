@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Notice, type TFile } from 'obsidian'
 import { useApp } from '../context'
 import { ConfirmModal } from '../modals/confirm-modal'
+import { CardDetailModal } from '../modals/card-detail-modal'
+import { matchesAllTokens } from '../domain/text-match'
 import { resolveImageSource } from '../utils/vault'
+import type { StoredEntry } from '../services/collection-store'
 import { t } from '../i18n'
 import { useVaultVersion } from '../hooks/useVaultVersion'
 import { CollectionView } from './CollectionView'
@@ -47,6 +50,55 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 	const decks = useMemo(() => plugin.store.listFiles('deck'), [plugin, version])
 	const cardIndex = useMemo(() => plugin.cardNotes.buildIndex(), [plugin, version])
 
+	const [query, setQuery] = useState('')
+	const searching = query.trim().length > 0
+
+	/** Global search: every entry of every collection, matched by card name. */
+	const results = useMemo(() => {
+		if (!searching) return []
+		const rows: { file: TFile; entry: StoredEntry; meta: CardMeta | null }[] = []
+		for (const file of collections) {
+			for (const entry of plugin.collections.readEntries(file)) {
+				const meta = cardIndex.get(entry.id) ?? null
+				const matches =
+					matchesAllTokens(meta?.name ?? entry.id, query) ||
+					(meta?.nameEn ? matchesAllTokens(meta.nameEn, query) : false)
+				if (matches) rows.push({ file, entry, meta })
+			}
+		}
+		return rows.sort((a, b) => (a.meta?.name ?? a.entry.id).localeCompare(b.meta?.name ?? b.entry.id))
+	}, [searching, query, collections, cardIndex, plugin])
+
+	const deckResults = useMemo(() => {
+		if (!searching) return []
+		const rows: { file: TFile; id: string; qty: number; meta: CardMeta | null }[] = []
+		for (const file of decks) {
+			for (const entry of plugin.decks.readEntries(file)) {
+				const meta = cardIndex.get(entry.id) ?? null
+				const matches =
+					matchesAllTokens(meta?.name ?? entry.id, query) ||
+					(meta?.nameEn ? matchesAllTokens(meta.nameEn, query) : false)
+				if (matches) rows.push({ file, id: entry.id, qty: entry.qty, meta })
+			}
+		}
+		return rows.sort((a, b) => (a.meta?.name ?? a.id).localeCompare(b.meta?.name ?? b.id))
+	}, [searching, query, decks, cardIndex, plugin])
+
+	/** Opens the card viewer navigating over the (deduped) result cards. */
+	const openResultCard = (meta: CardMeta | null) => {
+		if (!meta) return
+		const seen = new Set<string>()
+		const metas: CardMeta[] = []
+		for (const row of [...results.map((r) => r.meta), ...deckResults.map((r) => r.meta)]) {
+			if (row && !seen.has(row.cardId)) {
+				seen.add(row.cardId)
+				metas.push(row)
+			}
+		}
+		const start = metas.findIndex((m) => m.cardId === meta.cardId)
+		new CardDetailModal(app, plugin, metas, Math.max(0, start)).open()
+	}
+
 	// If the open collection/deck was deleted, fall back to the dashboard.
 	useEffect(() => {
 		if (!selected) return
@@ -85,6 +137,83 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 		<div className="tcgb-root">
 			<h2 className="tcgb-title">{t('view.title')}</h2>
 
+			<input
+				className="tcgb-global-search"
+				type="search"
+				placeholder={t('root.search')}
+				value={query}
+				onChange={(e) => setQuery(e.target.value)}
+			/>
+
+			{searching && (
+				<>
+					<section className="tcgb-list-section">
+						<h3 className="tcgb-section-title">
+							{t('root.search-results')}
+							<span className="tcgb-count-pill">{results.length}</span>
+						</h3>
+						{results.length === 0 ? (
+							<p className="tcgb-empty">{t('search.empty')}</p>
+						) : (
+							results.map(({ file, entry, meta }) => (
+								<div
+									key={`${file.path}-${entry.id}-${entry.variant}-${entry.condition}`}
+									className="tcgb-deck-row"
+								>
+									{meta?.image ? (
+										<img className="tcgb-thumb" loading="lazy" src={meta.image} alt="" />
+									) : (
+										<div className="tcgb-thumb tcgb-thumb-empty" />
+									)}
+									<a className="tcgb-card-link" onClick={() => openResultCard(meta)}>
+										{meta?.name ?? entry.id}
+									</a>
+									<span className="tcgb-deck-row-meta">
+										{entry.qty}× · {t(`variant.${entry.variant}`)} · {entry.condition}
+									</span>
+									<button
+										className="tcgb-result-loc"
+										onClick={() => setSelected({ kind: 'collection', file })}
+									>
+										{file.basename}
+									</button>
+								</div>
+							))
+						)}
+					</section>
+
+					{deckResults.length > 0 && (
+						<section className="tcgb-list-section">
+							<h3 className="tcgb-section-title">
+								{t('root.search-decks')}
+								<span className="tcgb-count-pill">{deckResults.length}</span>
+							</h3>
+							{deckResults.map(({ file, id, qty, meta }) => (
+								<div key={`${file.path}-${id}`} className="tcgb-deck-row">
+									{meta?.image ? (
+										<img className="tcgb-thumb" loading="lazy" src={meta.image} alt="" />
+									) : (
+										<div className="tcgb-thumb tcgb-thumb-empty" />
+									)}
+									<a className="tcgb-card-link" onClick={() => openResultCard(meta)}>
+										{meta?.name ?? id}
+									</a>
+									<span className="tcgb-deck-row-meta">{qty}×</span>
+									<button
+										className="tcgb-result-loc"
+										onClick={() => setSelected({ kind: 'deck', file })}
+									>
+										{file.basename}
+									</button>
+								</div>
+							))}
+						</section>
+					)}
+				</>
+			)}
+
+			{!searching && (
+			<>
 			<div className="tcgb-summary">
 				<div className="tcgb-stat">
 					<span className="tcgb-stat-value">{collections.length}</span>
@@ -208,6 +337,8 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 						<li>{t('empty.deck')}</li>
 					</ul>
 				</div>
+			)}
+			</>
 			)}
 			<ScrollTopFab />
 		</div>

@@ -195,4 +195,7 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'wishlist.acquired': '{name} adquirida → {collection}',
 	'settings.reserve-decks.name': 'Reservar cartas usadas em decks',
 	'settings.reserve-decks.desc': 'Trata cópias usadas por outros decks como indisponíveis ao calcular o que falta num deck — para quem mantém todos os decks montados. Desligado, qualquer cópia possuída atende todos os decks.',
+	'root.search': 'Buscar em todas as coleções e decks',
+	'root.search-results': 'Nas coleções',
+	'root.search-decks': 'Nos decks',
 }
