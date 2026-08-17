@@ -18,6 +18,10 @@ export interface CardMeta {
 	setName: string | null
 	number: string | null
 	supertype: string | null
+	/** Raw (possibly localized) subtypes, e.g. trainerType/energyType. */
+	subtypes: string[] | null
+	/** Pokémon energy types, e.g. ["Fire"] — localized as fetched. */
+	types: string[] | null
 	rarity: string | null
 	/** Display URL: remote as-is, vault paths resolved to app:// resources. */
 	image: string | null
@@ -72,6 +76,8 @@ export class CardNotes {
 			setName: stringOrNull(fm['set-name']),
 			number: stringOrNull(fm.number) ?? numberAsString(fm.number),
 			supertype,
+			subtypes: stringArrayOrNull(fm.subtypes),
+			types: stringArrayOrNull(fm.types),
 			rarity: stringOrNull(fm.rarity),
 			image: this.resolveImage(rawImage),
 			localImagePath:
@@ -149,6 +155,7 @@ export class CardNotes {
 			fm.number = card.number
 			fm.supertype = card.supertype
 			if (card.subtypes.length > 0) fm.subtypes = card.subtypes
+			if (card.details && card.details.types.length > 0) fm.types = card.details.types
 			if (card.rarity) fm.rarity = card.rarity
 			if (card.legalities.length > 0) fm.legalities = card.legalities
 			if (card.copyLimitExempt) fm['copy-limit-exempt'] = true
@@ -198,6 +205,13 @@ export class CardNotes {
 	async setReprintLegalities(file: TFile, formats: string[]): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			fm['legal-by-reprint'] = formats
+		})
+	}
+
+	/** Backfills Pokémon energy types on a note that predates the field. */
+	async setTypes(file: TFile, types: string[]): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			fm.types = types
 		})
 	}
 

@@ -28,6 +28,7 @@ import { pokemonTcgIoImageCandidates } from './services/card-data/fallback-image
 import { urlExists } from './services/card-data/http'
 import { CardListLine, parseCardList, serializeCardList } from './domain/card-list'
 import { functionalKey } from './domain/text-match'
+import { bucketFor, TypeBucket } from './domain/type-buckets'
 import { parseCsv } from './domain/csv'
 import { CsvCardRow, mapCsvRows } from './domain/csv-import'
 import { t } from './i18n'
@@ -158,6 +159,13 @@ export default class TcgBinderPlugin extends Plugin {
 			name: t('command.create-wishlist'),
 			callback: () => {
 				void this.createWishlist()
+			},
+		})
+		this.addCommand({
+			id: 'split-collection-by-type',
+			name: t('command.split-collection'),
+			callback: () => {
+				this.openSplitCollection()
 			},
 		})
 		this.addCommand({
@@ -933,6 +941,120 @@ export default class TcgBinderPlugin extends Plugin {
 			}
 		}
 		if (stamped > 0) console.debug(`[TCG Binder] stamped name-en on ${stamped} notes`)
+	}
+
+	/** Splitting a set collection would destroy its checklist — only regular ones qualify. */
+	openSplitCollection(): void {
+		const sources = this.store
+			.listFiles('collection')
+			.filter((file) => this.store.getRole(file) !== 'wishlist' && this.store.getSetId(file) === null)
+		if (sources.length === 0) {
+			new Notice(t('split.empty'))
+			return
+		}
+		new FilePickerModal(this.app, sources, t('split.picker'), (source) => {
+			void this.runSplitCollection(source)
+		}).open()
+	}
+
+	/**
+	 * Distributes every entry of a mixed collection into per-type collections
+	 * (trainer subtypes, basic/special energy, Pokémon by energy type),
+	 * reusing existing collections by name and creating the missing ones.
+	 * Pokémon notes without stamped `types` are backfilled from the set cache
+	 * first. Entries whose type is unknown stay in the source. Re-runnable.
+	 */
+	private async runSplitCollection(source: TFile): Promise<void> {
+		const entries = this.collections.readEntries(source)
+		if (entries.length === 0) {
+			new Notice(t('split.empty'))
+			return
+		}
+
+		const progress = new Notice(t('split.running'), 0)
+		try {
+			let index = this.cardNotes.buildIndex()
+
+			// Backfill Pokémon energy types (notes predate the field) — one
+			// cached set fetch per set, not one request per card.
+			const needingTypes = entries
+				.map((entry) => index.get(entry.id))
+				.filter(
+					(meta): meta is CardMeta =>
+						meta !== undefined && meta.supertype === 'Pokémon' && !meta.types && meta.setId !== null,
+				)
+			const bySet = new Map<string, CardMeta[]>()
+			for (const meta of needingTypes) {
+				const list = bySet.get(meta.setId as string) ?? []
+				list.push(meta)
+				bySet.set(meta.setId as string, list)
+			}
+			let stamped = 0
+			for (const [setId, metas] of bySet) {
+				const cards = await this.setCards.getSetCards(setId).catch((error: unknown) => {
+					console.error(`[TCG Binder] type backfill failed for set ${setId}`, error)
+					return [] as CardData[]
+				})
+				for (const meta of metas) {
+					const types = cards.find((card) => card.id === meta.cardId)?.details?.types
+					if (types && types.length > 0) {
+						await this.cardNotes.setTypes(meta.file, types)
+						stamped++
+					}
+				}
+			}
+			if (stamped > 0) index = this.cardNotes.buildIndex()
+
+			// Distribute. Targets are resolved lazily: existing collection with
+			// the bucket's name (case-insensitive), or created on first use.
+			const targets = new Map<string, TFile>()
+			const resolveTarget = async (bucket: TypeBucket): Promise<TFile> => {
+				const cached = targets.get(bucket)
+				if (cached) return cached
+				const name = this.bucketName(bucket)
+				const existing = this.store
+					.listFiles('collection')
+					.find((file) => file.basename.toLowerCase() === name.toLowerCase())
+				const target = existing ?? (await this.store.createCollection(name))
+				targets.set(bucket, target)
+				return target
+			}
+
+			let moved = 0
+			let skipped = 0
+			const movedKeys = new Set<string>()
+			for (const [i, entry] of entries.entries()) {
+				progress.setMessage(`${t('split.running')} ${i + 1}/${entries.length}`)
+				const meta = index.get(entry.id)
+				const bucket = meta ? bucketFor(meta) : null
+				if (!bucket) {
+					skipped++
+					continue
+				}
+				const target = await resolveTarget(bucket)
+				if (target.path === source.path) continue // already in the right place
+				await this.collections.upsertEntry(target, entry)
+				movedKeys.add(`${entry.id}|${entry.variant}|${entry.condition}`)
+				moved++
+			}
+			await this.collections.setEntries(
+				source,
+				entries.filter((entry) => !movedKeys.has(`${entry.id}|${entry.variant}|${entry.condition}`)),
+			)
+			new Notice(t('split.done', { moved, collections: targets.size, skipped }))
+		} catch (error) {
+			new Notice(String(error))
+		} finally {
+			progress.hide()
+		}
+	}
+
+	private bucketName(bucket: TypeBucket): string {
+		if (bucket.startsWith('pokemon-')) {
+			const type = bucket.slice('pokemon-'.length)
+			return t('bucket.pokemon-type', { type: t(`type.${type}` as Parameters<typeof t>[0]) })
+		}
+		return t(`bucket.${bucket}` as Parameters<typeof t>[0])
 	}
 
 	private async createWishlist(): Promise<void> {
