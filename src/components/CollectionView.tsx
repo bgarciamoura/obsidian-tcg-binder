@@ -3,6 +3,7 @@ import { Menu, Notice, TFile } from 'obsidian'
 import { useApp } from '../context'
 import { CoverPositionModal } from '../modals/cover-position-modal'
 import { resolveImageSource } from '../utils/vault'
+import { localIsoDate } from '../utils/date'
 import { t } from '../i18n'
 import { CARD_CONDITIONS, CARD_VARIANTS } from '../types'
 import type { CardCondition, CardVariant } from '../types'
@@ -68,9 +69,7 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 		const cutoff =
 			dateFilter === ALL
 				? null
-				: new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000)
-						.toISOString()
-						.slice(0, 10)
+				: localIsoDate(new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000))
 		const result = rows.filter((row) => {
 			if (setFilter !== ALL && row.meta?.setId !== setFilter) return false
 			if (variantFilter !== ALL && row.variant !== variantFilter) return false
@@ -415,6 +414,11 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 				>
 					🖼
 				</button>
+				{isWishlist && rows.length > 0 && (
+					<button className="tcgb-btn" onClick={() => plugin.confirmClearWishlist(file)}>
+						{t('wishlist.clear')}
+					</button>
+				)}
 			</div>
 
 			{filtered.length === 0 ? (

@@ -17,10 +17,13 @@ import { AddCardModal, previewFromCardData } from './modals/add-card-modal'
 import type { CardMeta } from './services/card-notes'
 import { ensureFolder } from './utils/vault'
 import { sanitizeFileName } from './utils/file-name'
+import { localIsoDate } from './utils/date'
 import { AddToDeckModal } from './modals/add-to-deck-modal'
 import { ImportListModal, ImportSummary } from './modals/import-list-modal'
 import { ImportDeckModal } from './modals/import-deck-modal'
 import { FilePickerModal } from './modals/file-picker-modal'
+import { ConfirmModal } from './modals/confirm-modal'
+import { BucketChoices, DeckToCollectionsModal } from './modals/deck-to-collections-modal'
 import { SetPickerModal } from './modals/set-picker-modal'
 import { QuickAddModal } from './modals/quick-add-modal'
 import type { SetInfo } from './services/card-data/card-data-source'
@@ -166,6 +169,20 @@ export default class TcgBinderPlugin extends Plugin {
 			name: t('command.split-collection'),
 			callback: () => {
 				this.openSplitCollection()
+			},
+		})
+		this.addCommand({
+			id: 'add-deck-to-collections',
+			name: t('command.deck-to-collections'),
+			callback: () => {
+				this.openAddDeckToCollections()
+			},
+		})
+		this.addCommand({
+			id: 'clear-wishlist',
+			name: t('command.clear-wishlist'),
+			callback: () => {
+				this.openClearWishlist()
 			},
 		})
 		this.addCommand({
@@ -476,7 +493,7 @@ export default class TcgBinderPlugin extends Plugin {
 		let total = 0
 		for (const [id, qty] of owned) total += qty * (prices.get(id) ?? 0)
 		await this.portfolio.append({
-			date: new Date().toISOString().slice(0, 10),
+			date: localIsoDate(),
 			value: Math.round(total * 100) / 100,
 		})
 		new Notice(t('prices.done', { value: `$${total.toFixed(2)}` }))
@@ -974,51 +991,10 @@ export default class TcgBinderPlugin extends Plugin {
 		const progress = new Notice(t('split.running'), 0)
 		try {
 			let index = this.cardNotes.buildIndex()
-
-			// Backfill Pokémon energy types (notes predate the field) — one
-			// cached set fetch per set, not one request per card.
-			const needingTypes = entries
-				.map((entry) => index.get(entry.id))
-				.filter(
-					(meta): meta is CardMeta =>
-						meta !== undefined && meta.supertype === 'Pokémon' && !meta.types && meta.setId !== null,
-				)
-			const bySet = new Map<string, CardMeta[]>()
-			for (const meta of needingTypes) {
-				const list = bySet.get(meta.setId as string) ?? []
-				list.push(meta)
-				bySet.set(meta.setId as string, list)
-			}
-			let stamped = 0
-			for (const [setId, metas] of bySet) {
-				const cards = await this.setCards.getSetCards(setId).catch((error: unknown) => {
-					console.error(`[TCG Binder] type backfill failed for set ${setId}`, error)
-					return [] as CardData[]
-				})
-				for (const meta of metas) {
-					const types = cards.find((card) => card.id === meta.cardId)?.details?.types
-					if (types && types.length > 0) {
-						await this.cardNotes.setTypes(meta.file, types)
-						stamped++
-					}
-				}
-			}
+			const stamped = await this.backfillPokemonTypes(index, entries.map((entry) => entry.id))
 			if (stamped > 0) index = this.cardNotes.buildIndex()
 
-			// Distribute. Targets are resolved lazily: existing collection with
-			// the bucket's name (case-insensitive), or created on first use.
-			const targets = new Map<string, TFile>()
-			const resolveTarget = async (bucket: TypeBucket): Promise<TFile> => {
-				const cached = targets.get(bucket)
-				if (cached) return cached
-				const name = this.bucketName(bucket)
-				const existing = this.store
-					.listFiles('collection')
-					.find((file) => file.basename.toLowerCase() === name.toLowerCase())
-				const target = existing ?? (await this.store.createCollection(name))
-				targets.set(bucket, target)
-				return target
-			}
+			const { targets, resolveTarget } = this.bucketTargetResolver()
 
 			let moved = 0
 			let skipped = 0
@@ -1055,6 +1031,234 @@ export default class TcgBinderPlugin extends Plugin {
 			return t('bucket.pokemon-type', { type: t(`type.${type}` as Parameters<typeof t>[0]) })
 		}
 		return t(`bucket.${bucket}` as Parameters<typeof t>[0])
+	}
+
+	/**
+	 * Stamps missing `types` on Pokémon notes (they predate the field) — one
+	 * cached set fetch per set, not one request per card. Returns how many
+	 * notes were stamped; the caller rebuilds its index when > 0.
+	 */
+	private async backfillPokemonTypes(index: Map<string, CardMeta>, ids: string[]): Promise<number> {
+		const needingTypes = ids
+			.map((id) => index.get(id))
+			.filter(
+				(meta): meta is CardMeta =>
+					meta !== undefined && meta.supertype === 'Pokémon' && !meta.types && meta.setId !== null,
+			)
+		const bySet = new Map<string, CardMeta[]>()
+		for (const meta of needingTypes) {
+			const list = bySet.get(meta.setId as string) ?? []
+			list.push(meta)
+			bySet.set(meta.setId as string, list)
+		}
+		let stamped = 0
+		for (const [setId, metas] of bySet) {
+			const cards = await this.setCards.getSetCards(setId).catch((error: unknown) => {
+				console.error(`[TCG Binder] type backfill failed for set ${setId}`, error)
+				return [] as CardData[]
+			})
+			for (const meta of metas) {
+				const types = cards.find((card) => card.id === meta.cardId)?.details?.types
+				if (types && types.length > 0) {
+					await this.cardNotes.setTypes(meta.file, types)
+					stamped++
+				}
+			}
+		}
+		return stamped
+	}
+
+	/**
+	 * Lazy bucket → collection resolver shared by split and deck-to-collections:
+	 * an existing collection with the bucket's name (case-insensitive) is
+	 * reused, missing ones are created on first use.
+	 */
+	private bucketTargetResolver(): {
+		targets: Map<string, TFile>
+		resolveTarget: (bucket: TypeBucket) => Promise<TFile>
+	} {
+		const targets = new Map<string, TFile>()
+		const resolveTarget = async (bucket: TypeBucket): Promise<TFile> => {
+			const cached = targets.get(bucket)
+			if (cached) return cached
+			const name = this.bucketName(bucket)
+			const existing = this.store
+				.listFiles('collection')
+				.find((file) => file.basename.toLowerCase() === name.toLowerCase())
+			const target = existing ?? (await this.store.createCollection(name))
+			targets.set(bucket, target)
+			return target
+		}
+		return { targets, resolveTarget }
+	}
+
+	openAddDeckToCollections(): void {
+		const decks = this.store.listFiles('deck')
+		if (decks.length === 0) {
+			new Notice(t('notice.no-decks'))
+			return
+		}
+		if (decks.length === 1) {
+			void this.addDeckToCollections(decks[0])
+			return
+		}
+		new FilePickerModal(this.app, decks, t('picker.deck'), (deck) => {
+			void this.addDeckToCollections(deck)
+		}).open()
+	}
+
+	/**
+	 * Registers every card of a deck as owned, grouped by card type — but the
+	 * USER picks the destination collection of each type in a modal (bucket-
+	 * named collections are only the prefilled suggestion). Idempotent top-up:
+	 * each destination is only raised to the deck's quantity, so re-running
+	 * never inflates counts.
+	 */
+	async addDeckToCollections(file: TFile): Promise<void> {
+		const lines = this.decks.readEntries(file)
+		if (lines.length === 0) {
+			new Notice(t('deck-to-collections.empty'))
+			return
+		}
+		// A card split across duplicate lines is one pile — aggregate by id.
+		const byId = new Map<string, { id: string; link: string; qty: number }>()
+		for (const line of lines) {
+			const current = byId.get(line.id)
+			if (current) current.qty += line.qty
+			else byId.set(line.id, { ...line })
+		}
+
+		let index = this.cardNotes.buildIndex()
+		const stamped = await this.backfillPokemonTypes(index, [...byId.keys()])
+		if (stamped > 0) index = this.cardNotes.buildIndex()
+
+		// Group the deck's cards by bucket; unknown-type cards get their own
+		// row so the user can still route (or skip) them.
+		const groups = new Map<string, { newName: string | null; lines: { id: string; link: string; qty: number }[] }>()
+		for (const line of byId.values()) {
+			const meta = index.get(line.id)
+			const bucket = meta ? bucketFor(meta) : null
+			const key = bucket ?? 'unknown'
+			const group = groups.get(key) ?? { newName: bucket ? this.bucketName(bucket) : null, lines: [] }
+			group.lines.push(line)
+			groups.set(key, group)
+		}
+
+		// Wishlists are not owned copies and set collections are checklists —
+		// neither is a valid destination.
+		const collections = this.store
+			.listFiles('collection')
+			.filter((f) => this.store.getRole(f) !== 'wishlist' && this.store.getSetId(f) === null)
+
+		const rows = [...groups.entries()]
+			.map(([key, group]) => {
+				const existing = group.newName
+					? collections.find((f) => f.basename.toLowerCase() === (group.newName as string).toLowerCase())
+					: undefined
+				return {
+					key,
+					label: key === 'unknown' ? t('deck-to-collections.unknown') : (group.newName as string),
+					qty: group.lines.reduce((sum, line) => sum + line.qty, 0),
+					// Creating is pointless when the named collection exists —
+					// suggest the match instead and drop the "create" option.
+					newName: existing ? null : group.newName,
+					defaultChoice: existing ? existing.path : key === 'unknown' ? 'skip' : 'new',
+				}
+			})
+			.sort((a, b) => (a.key === 'unknown' ? 1 : b.key === 'unknown' ? -1 : a.label.localeCompare(b.label)))
+
+		new DeckToCollectionsModal(this.app, file.basename, rows, collections, (choices) => {
+			void this.applyDeckToCollections(groups, choices)
+		}).open()
+	}
+
+	/** Applies the user's bucket → collection mapping with top-up semantics. */
+	private async applyDeckToCollections(
+		groups: Map<string, { newName: string | null; lines: { id: string; link: string; qty: number }[] }>,
+		choices: BucketChoices,
+	): Promise<void> {
+		const progress = new Notice(t('deck-to-collections.running'), 0)
+		try {
+			let added = 0
+			let skipped = 0
+			const touched = new Set<string>()
+			for (const [key, group] of groups) {
+				const choice = choices.get(key) ?? 'skip'
+				if (choice === 'skip') {
+					skipped += group.lines.reduce((sum, line) => sum + line.qty, 0)
+					continue
+				}
+				let target: TFile
+				if (choice === 'new') {
+					if (!group.newName) continue
+					target = await this.store.createCollection(group.newName)
+				} else {
+					const existing = this.app.vault.getFileByPath(choice)
+					if (!existing) continue
+					target = existing
+				}
+				touched.add(target.path)
+				for (const line of group.lines) {
+					const owned = this.collections
+						.readEntries(target)
+						.filter((entry) => entry.id === line.id)
+						.reduce((sum, entry) => sum + entry.qty, 0)
+					const delta = line.qty - owned
+					if (delta <= 0) continue
+					await this.collections.addEntry(target, line.id, line.link, delta, 'normal', 'NM')
+					added += delta
+				}
+			}
+			new Notice(t('deck-to-collections.done', { added, collections: touched.size, skipped }))
+		} catch (error) {
+			new Notice(String(error))
+		} finally {
+			progress.hide()
+		}
+	}
+
+	openClearWishlist(): void {
+		const wishlists = this.store
+			.listFiles('collection')
+			.filter((file) => this.store.getRole(file) === 'wishlist')
+		if (wishlists.length === 0) {
+			new Notice(t('wishlist.none'))
+			return
+		}
+		if (wishlists.length === 1) {
+			this.confirmClearWishlist(wishlists[0])
+			return
+		}
+		new FilePickerModal(this.app, wishlists, t('wishlist.clear-picker'), (wishlist) => {
+			this.confirmClearWishlist(wishlist)
+		}).open()
+	}
+
+	/** Empties the wishlist (all entry lines) after an explicit confirmation. */
+	confirmClearWishlist(file: TFile): void {
+		const count = this.collections
+			.readEntries(file)
+			.reduce((sum, entry) => sum + entry.qty, 0)
+		if (count === 0) {
+			new Notice(t('wishlist.already-empty'))
+			return
+		}
+		new ConfirmModal(
+			this.app,
+			t('wishlist.clear-title'),
+			t('wishlist.clear-body', { count, name: file.basename }),
+			() => {
+				void (async () => {
+					try {
+						await this.collections.setEntries(file, [])
+						new Notice(t('wishlist.cleared'))
+					} catch (error) {
+						new Notice(String(error))
+					}
+				})()
+			},
+			t('wishlist.clear-confirm'),
+		).open()
 	}
 
 	private async createWishlist(): Promise<void> {

@@ -8,6 +8,8 @@ export class ConfirmModal extends Modal {
 		private readonly title: string,
 		private readonly body: string,
 		private readonly onConfirm: () => void,
+		/** Confirm-button label; defaults to "Delete" for the delete flows. */
+		private readonly confirmLabel?: string,
 	) {
 		super(app)
 	}
@@ -22,7 +24,7 @@ export class ConfirmModal extends Modal {
 				})
 			})
 			.addButton((btn) => {
-				btn.setButtonText(t('confirm.delete')).onClick(() => {
+				btn.setButtonText(this.confirmLabel ?? t('confirm.delete')).onClick(() => {
 					this.close()
 					this.onConfirm()
 				})
