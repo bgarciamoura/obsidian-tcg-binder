@@ -57,6 +57,42 @@ export function buildOwnershipMaps(
 	return { inCollections, reserved }
 }
 
+export interface DeckUsage {
+	path: string
+	name: string
+	qty: number
+	/** False when the deck is just a list — it does not reserve copies. */
+	assembled: boolean
+}
+
+/**
+ * The decks that run a card, matched by functional identity (any printing
+ * of the same name counts, like the reserve math). Powers the card detail's
+ * "reserved for" line.
+ */
+export function deckUsageFor(plugin: TcgBinderPlugin, card: CardMeta): DeckUsage[] {
+	const cardIndex = plugin.cardNotes.buildIndex()
+	const key = functionalKey(card.nameEn, card.name, card.cardId)
+	const usage: DeckUsage[] = []
+	for (const deck of plugin.store.listFiles('deck')) {
+		let qty = 0
+		for (const entry of plugin.decks.readEntries(deck)) {
+			const meta = cardIndex.get(entry.id)
+			const entryKey = functionalKey(meta?.nameEn ?? null, meta?.name ?? null, entry.id)
+			if (entryKey === key || entry.id === card.cardId) qty += entry.qty
+		}
+		if (qty > 0) {
+			usage.push({
+				path: deck.path,
+				name: deck.basename,
+				qty,
+				assembled: plugin.decks.readAssembled(deck),
+			})
+		}
+	}
+	return usage.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 /**
  * How many cards of a deck the collection cannot cover — the same math as
  * the deck view's missing list, reduced to one number for the dashboard.

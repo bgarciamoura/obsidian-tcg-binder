@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Notice } from 'obsidian'
 import { t } from '../i18n'
 import type { CardDetails } from '../services/card-data/card-data-source'
 import type { CardMeta } from '../services/card-notes'
+import { deckUsageFor } from '../services/deck-availability'
 import type TcgBinderPlugin from '../main'
 
 interface CardDetailProps {
@@ -40,6 +41,8 @@ export function CardDetail({ plugin, metas, startIndex, registerNavigate, onOpen
 	// navigated away from must not overwrite the current card's text.
 	const fetchId = useRef(0)
 	const meta = metas[index]
+	/** Decks running this card (any printing of the same name), for "reserved for". */
+	const deckUsage = useMemo(() => deckUsageFor(plugin, meta), [plugin, meta])
 	const sessionUpload = uploaded.get(meta.cardId)
 	const image = sessionUpload?.url ?? meta.image
 	/** Set only for user-uploaded images — API scans are never replaceable. */
@@ -177,6 +180,27 @@ export function CardDetail({ plugin, metas, startIndex, registerNavigate, onOpen
 								{meta.priceUpdated && (
 									<span className="tcgb-detail-price-date"> · {meta.priceUpdated}</span>
 								)}
+							</div>
+						)}
+
+						{deckUsage.length > 0 && (
+							<div className="tcgb-detail-decks">
+								<span className="tcgb-detail-decks-label">
+									{plugin.settings.reserveDeckCopies
+										? t('detail.reserved-for')
+										: t('detail.in-decks')}
+								</span>
+								{deckUsage.map((usage) => (
+									<span
+										key={usage.path}
+										className={`tcgb-detail-badge ${usage.assembled ? '' : 'tcgb-detail-deck-unassembled'}`}
+									>
+										{usage.qty}× {usage.name}
+										{plugin.settings.reserveDeckCopies && !usage.assembled && (
+											<> · {t('detail.deck-unassembled')}</>
+										)}
+									</span>
+								))}
 							</div>
 						)}
 

@@ -1278,6 +1278,24 @@ select.tcgb-cond {
 	color: var(--text-muted);
 }
 
+/* Which decks run this card — "reserved for" line in the card detail */
+.tcgb-detail-decks {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+	margin-top: var(--size-2-3);
+}
+
+.tcgb-detail-decks-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.tcgb-detail-deck-unassembled {
+	opacity: 0.6;
+}
+
 .tcgb-detail-badge-legal {
 	color: var(--color-green);
 }
