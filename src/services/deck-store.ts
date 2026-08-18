@@ -40,6 +40,27 @@ export class DeckStore {
 		})
 	}
 
+	/**
+	 * Whether the deck is physically assembled with real cards. Only assembled
+	 * decks reserve collection copies in the missing math ("reserve deck
+	 * copies" setting) — a deck that is still just a list should not hold the
+	 * copies another deck actually contains. Defaults to true: existing decks
+	 * keep today's reserving behavior.
+	 */
+	readAssembled(file: TFile): boolean {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
+		return frontmatter?.assembled !== false
+	}
+
+	async setAssembled(file: TFile, assembled: boolean): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			// True is the default — keep the frontmatter clean instead of
+			// stamping "assembled: true" on every deck.
+			if (assembled) delete fm.assembled
+			else fm.assembled = false
+		})
+	}
+
 	async addEntry(file: TFile, cardId: string, cardLink: string, qty: number): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			const raw: unknown = fm.entries

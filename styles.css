@@ -206,6 +206,31 @@
 	white-space: nowrap;
 }
 
+/* "Assembled" toggle — whether this deck reserves collection copies */
+.tcgb-assembled {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.tcgb-assembled input {
+	cursor: pointer;
+}
+
+/* Subtle "this deck is missing cards" hint — a small dot, details on hover */
+.tcgb-list-missing-dot {
+	flex-shrink: 0;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-orange);
+	opacity: 0.7;
+}
+
 .tcgb-list-meta-ok {
 	color: var(--color-green);
 	font-weight: 600;
@@ -693,6 +718,23 @@ select.tcgb-cond {
 
 .tcgb-deck-missing {
 	margin-top: var(--size-4-8);
+}
+
+.tcgb-deck-missing-name {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.tcgb-deck-missing-name .tcgb-card-link {
+	flex: none;
+}
+
+.tcgb-deck-missing-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
 }
 
 .tcgb-deck-missing-qty {

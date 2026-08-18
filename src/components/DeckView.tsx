@@ -9,6 +9,7 @@ import { legalitiesByFunctionalName, validateDeck, validateDeckLegality } from '
 import { functionalKey } from '../domain/text-match'
 import type { ViewMode } from '../settings'
 import type { CardMeta } from '../services/card-notes'
+import { buildOwnershipMaps } from '../services/deck-availability'
 import type { DeckStoredEntry } from '../services/deck-store'
 import type { DeckFormat } from '../types'
 import { CardDetailModal } from '../modals/card-detail-modal'
@@ -38,6 +39,7 @@ function groupOf(row: Row): Group {
 export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 	const app = useApp()
 	const format = plugin.decks.readFormat(file)
+	const assembled = plugin.decks.readAssembled(file)
 	const [mode, setMode] = useState<ViewMode>(plugin.settings.defaultViewMode)
 
 	const cardIndex = useMemo(() => plugin.cardNotes.buildIndex(), [plugin, version])
@@ -107,42 +109,10 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		[rows],
 	)
 
-	/**
-	 * Ownership is aggregated by card NAME across every collection: in the
-	 * game, any printing of the same name is functionally the same card, so
-	 * owning "Switch" from SVI satisfies a deck line for "Switch" from MEG.
-	 * Falls back to id matching for cards whose note lacks a resolvable name.
-	 */
-	const owned = useMemo(() => {
-		const byName = new Map<string, number>()
-		const byId = new Map<string, number>()
-		for (const collection of plugin.store.listFiles('collection')) {
-			if (plugin.store.getRole(collection) === 'wishlist') continue
-			for (const entry of plugin.collections.readEntries(collection)) {
-				byId.set(entry.id, (byId.get(entry.id) ?? 0) + entry.qty)
-				const meta = cardIndex.get(entry.id)
-				if (meta) {
-					const key = functionalKey(meta.nameEn, meta.name, entry.id)
-					byName.set(key, (byName.get(key) ?? 0) + entry.qty)
-				}
-			}
-		}
-		// "Reserve deck copies": what other decks use is not available here.
-		if (plugin.settings.reserveDeckCopies) {
-			for (const deck of plugin.store.listFiles('deck')) {
-				if (deck.path === file.path) continue
-				for (const entry of plugin.decks.readEntries(deck)) {
-					byId.set(entry.id, (byId.get(entry.id) ?? 0) - entry.qty)
-					const meta = cardIndex.get(entry.id)
-					if (meta) {
-						const key = functionalKey(meta.nameEn, meta.name, entry.id)
-						byName.set(key, (byName.get(key) ?? 0) - entry.qty)
-					}
-				}
-			}
-		}
-		return { byName, byId }
-	}, [plugin, version, cardIndex, file])
+	const owned = useMemo(
+		() => buildOwnershipMaps(plugin, cardIndex, file.path),
+		[plugin, version, cardIndex, file],
+	)
 
 	const missing = useMemo(() => {
 		// Deck lines of the same name share one owned pool — aggregate first.
@@ -155,10 +125,12 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 		}
 		return [...neededByName.entries()]
 			.map(([key, { qty, row }]) => {
+				const ownedQty = owned.inCollections.byName.get(key) ?? owned.inCollections.byId.get(row.id) ?? 0
+				const reservedQty = owned.reserved.byName.get(key) ?? owned.reserved.byId.get(row.id) ?? 0
 				// Clamp: reserved copies can push availability negative, but a
 				// deck can never miss more copies than it needs.
-				const available = Math.max(0, owned.byName.get(key) ?? owned.byId.get(row.id) ?? 0)
-				return { ...row, missingQty: Math.max(0, qty - available) }
+				const available = Math.max(0, ownedQty - reservedQty)
+				return { ...row, ownedQty, reservedQty, missingQty: Math.max(0, qty - available) }
 			})
 			.filter((row) => row.missingQty > 0)
 	}, [rows, owned])
@@ -263,11 +235,28 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 					<option value="expanded">{t('format.expanded')}</option>
 					<option value="unlimited">{t('format.unlimited')}</option>
 				</select>
+				{plugin.settings.reserveDeckCopies && (
+					<label className="tcgb-assembled" title={t('deck.assembled-hint')}>
+						<input
+							type="checkbox"
+							checked={assembled}
+							onChange={(e) => void plugin.decks.setAssembled(file, e.target.checked)}
+						/>
+						{t('deck.assembled')}
+					</label>
+				)}
 				<button className="tcgb-btn tcgb-btn-cta" onClick={() => plugin.runAddToDeckLoop([file])}>
 					{t('deck.add-cards')}
 				</button>
 				<button className="tcgb-btn" onClick={() => void plugin.exportDeck(file)}>
 					{t('deck.export')}
+				</button>
+				<button
+					className="tcgb-btn"
+					title={t('deck.to-collections-hint')}
+					onClick={() => void plugin.addDeckToCollections(file)}
+				>
+					{t('deck.to-collections')}
 				</button>
 				<button
 					className="tcgb-btn tcgb-mode-toggle"
@@ -415,9 +404,19 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 								<div className="tcgb-thumb tcgb-thumb-empty" />
 							)}
 							<span className="tcgb-deck-missing-qty">{row.missingQty}×</span>
-							<a className="tcgb-card-link" onClick={() => openCard(row)}>
-								{row.meta?.name ?? row.id}
-							</a>
+							<div className="tcgb-deck-missing-name">
+								<a className="tcgb-card-link" onClick={() => openCard(row)}>
+									{row.meta?.name ?? row.id}
+								</a>
+								{row.ownedQty > 0 && row.reservedQty > 0 && (
+									<span className="tcgb-deck-missing-note">
+										{t('deck.missing-reserved', {
+											owned: row.ownedQty,
+											reserved: row.reservedQty,
+										})}
+									</span>
+								)}
+							</div>
 							<span className="tcgb-deck-row-meta tcgb-cell-num">
 								{row.meta?.priceMarket !== null && row.meta?.priceMarket !== undefined
 									? `$${(row.missingQty * row.meta.priceMarket).toFixed(2)}`
