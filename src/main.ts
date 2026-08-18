@@ -592,6 +592,34 @@ export default class TcgBinderPlugin extends Plugin {
 		return { path: created.path, resourceUrl: this.app.vault.adapter.getResourcePath(created.path) }
 	}
 
+	/**
+	 * Saves a user-uploaded cover image into the binder folder and sets it as
+	 * the cover of `target`. A previous UPLOADED cover (a file under covers/)
+	 * is trashed after the new one is written; covers borrowed from card
+	 * images or remote URLs are left alone.
+	 */
+	async attachCoverImage(target: TFile, data: ArrayBuffer, fileName: string): Promise<void> {
+		const ALLOWED = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif']
+		const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
+		if (!ALLOWED.includes(ext)) throw new Error(t('detail.image-invalid'))
+
+		const folder = normalizePath(`${this.settings.rootFolder}/covers`)
+		await ensureFolder(this.app, folder)
+		const base = sanitizeFileName(target.basename)
+		let path = normalizePath(`${folder}/${base}.${ext}`)
+		for (let suffix = 2; this.app.vault.getAbstractFileByPath(path); suffix++) {
+			path = normalizePath(`${folder}/${base} ${suffix}.${ext}`)
+		}
+		const previous = this.store.getCover(target)
+		const created = await this.app.vault.createBinary(path, data)
+		await this.store.setCover(target, created.path)
+		if (previous && normalizePath(previous).startsWith(`${folder}/`)) {
+			const previousFile = this.app.vault.getFileByPath(normalizePath(previous))
+			// Trash (not delete) — respects the user's "deleted files" setting.
+			if (previousFile) await this.app.fileManager.trashFile(previousFile)
+		}
+	}
+
 	/** Cards already checked for reprint legality this session — misses included. */
 	private readonly reprintChecked = new Set<string>()
 
@@ -698,15 +726,21 @@ export default class TcgBinderPlugin extends Plugin {
 	}
 
 	openImportDeck(): void {
-		new ImportDeckModal(this.app, (name, text) => this.runDeckImport(name, text)).open()
+		new ImportDeckModal(this.app, (name, text, assembled) => this.runDeckImport(name, text, assembled), {
+			// Assembled only matters while copies are reserved — hide otherwise.
+			showAssembled: this.settings.reserveDeckCopies,
+		}).open()
 	}
 
-	private async runDeckImport(name: string, text: string): Promise<ImportSummary> {
+	private async runDeckImport(name: string, text: string, assembled: boolean): Promise<ImportSummary> {
 		const { entries, errors } = parseCardList(text)
 		const failed = errors.map((e) => e.text)
 		const resolved = await this.resolveCardLines(entries, failed)
 
 		const deck = await this.store.createDeck(name || t('default.new-deck-name'))
+		// An imported list is usually a netdeck the user has not built yet —
+		// unless they said otherwise, it must not reserve collection copies.
+		if (!assembled) await this.decks.setAssembled(deck, false)
 		let added = 0
 		const deckLines: { id: string; link: string; qty: number }[] = []
 		for (const { card, quantity } of resolved) {

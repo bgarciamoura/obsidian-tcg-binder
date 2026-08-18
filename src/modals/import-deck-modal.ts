@@ -2,13 +2,19 @@ import { App, Modal, Setting } from 'obsidian'
 import type { ImportSummary } from './import-list-modal'
 import { t } from '../i18n'
 
+export interface ImportDeckOptions {
+	/** Show the "assembled" toggle (only meaningful while copies are reserved). */
+	showAssembled?: boolean
+}
+
 /** Paste a full TCG Live decklist and create a new deck note from it. */
 export class ImportDeckModal extends Modal {
 	private busy = false
 
 	constructor(
 		app: App,
-		private readonly runImport: (name: string, text: string) => Promise<ImportSummary>,
+		private readonly runImport: (name: string, text: string, assembled: boolean) => Promise<ImportSummary>,
+		private readonly options: ImportDeckOptions = {},
 	) {
 		super(app)
 	}
@@ -28,6 +34,22 @@ export class ImportDeckModal extends Modal {
 			})
 		})
 
+		// Imported lists are usually netdecks the user has not built yet, so
+		// the toggle starts OFF; without the reserve setting it stays hidden
+		// and the deck keeps the assembled default.
+		let assembled = !this.options.showAssembled
+		if (this.options.showAssembled) {
+			new Setting(contentEl)
+				.setName(t('deck.assembled'))
+				.setDesc(t('deck.assembled-hint'))
+				.addToggle((toggle) => {
+					toggle.setValue(assembled)
+					toggle.onChange((value) => {
+						assembled = value
+					})
+				})
+		}
+
 		const textarea = contentEl.createEl('textarea', {
 			cls: 'tcgb-import-textarea',
 			attr: { rows: '12', placeholder: t('import.placeholder') },
@@ -41,7 +63,7 @@ export class ImportDeckModal extends Modal {
 				.setButtonText(t('import.submit'))
 				.setCta()
 				.onClick(() => {
-					void this.submit(name, textarea.value, status, failedEl, () => {
+					void this.submit(name, textarea.value, assembled, status, failedEl, () => {
 						btn.setDisabled(this.busy)
 					})
 				}),
@@ -55,6 +77,7 @@ export class ImportDeckModal extends Modal {
 	private async submit(
 		name: string,
 		text: string,
+		assembled: boolean,
 		status: HTMLElement,
 		failedEl: HTMLElement,
 		syncButton: () => void,
@@ -65,7 +88,7 @@ export class ImportDeckModal extends Modal {
 		status.setText(t('import.running'))
 		failedEl.hide()
 		try {
-			const summary = await this.runImport(name.trim(), text)
+			const summary = await this.runImport(name.trim(), text, assembled)
 			status.setText(t('import.summary', { added: summary.added, failed: summary.failed.length }))
 			if (summary.failed.length > 0) {
 				failedEl.setText(summary.failed.join('\n'))
