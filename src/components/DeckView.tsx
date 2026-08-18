@@ -113,24 +113,53 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 	)
 
 	const missing = useMemo(() => {
-		// Deck lines of the same name share one owned pool — aggregate first.
-		const neededByName = new Map<string, { qty: number; row: Row }>()
+		// Deck lines of the same name share one owned pool (any printing
+		// satisfies the deck), so availability is computed per NAME — but the
+		// display keeps one row per PRINTING, or edits to the printing split
+		// look like the list did not update. Owned copies cover the printings
+		// in deck order; what remains is what is actually missing per line.
+		const groups = new Map<string, { allocated: number; rows: Row[] }>()
 		for (const row of rows) {
 			const key = functionalKey(row.meta?.nameEn ?? null, row.meta?.name ?? null, row.id)
-			const current = neededByName.get(key)
-			if (current) current.qty += row.qty
-			else neededByName.set(key, { qty: row.qty, row })
+			const group = groups.get(key) ?? { allocated: 0, rows: [] }
+			group.allocated += row.allocated
+			group.rows.push(row)
+			groups.set(key, group)
 		}
-		return [...neededByName.entries()]
-			.map(([key, { qty, row }]) => {
-				const ownedQty = owned.inCollections.byName.get(key) ?? owned.inCollections.byId.get(row.id) ?? 0
-				const reservedQty = owned.reserved.byName.get(key) ?? owned.reserved.byId.get(row.id) ?? 0
-				// Clamp: reserved copies can push availability negative, but a
-				// deck can never miss more copies than it needs.
-				const available = Math.max(0, ownedQty - reservedQty)
-				return { ...row, ownedQty, reservedQty, missingQty: Math.max(0, qty - available) }
-			})
-			.filter((row) => row.missingQty > 0)
+		const result: (Row & {
+			ownedQty: number
+			reservedQty: number
+			allocatedQty: number
+			missingQty: number
+			showNote: boolean
+		})[] = []
+		for (const [key, group] of groups) {
+			const first = group.rows[0]
+			const ownedQty = owned.inCollections.byName.get(key) ?? owned.inCollections.byId.get(first.id) ?? 0
+			const reservedQty = owned.reserved.byName.get(key) ?? owned.reserved.byId.get(first.id) ?? 0
+			// Clamp: reserved copies can push availability negative, but a
+			// deck can never miss more copies than it needs. Copies allocated
+			// to THIS deck are guaranteed to it.
+			let available = Math.max(Math.max(0, ownedQty - reservedQty), group.allocated)
+			let firstMissing = true
+			for (const row of group.rows) {
+				const covered = Math.min(row.qty, available)
+				available -= covered
+				const missingQty = row.qty - covered
+				if (missingQty === 0) continue
+				result.push({
+					...row,
+					ownedQty,
+					reservedQty,
+					allocatedQty: group.allocated,
+					missingQty,
+					// The ownership note is name-level — repeat it once per name.
+					showNote: firstMissing,
+				})
+				firstMissing = false
+			}
+		}
+		return result
 	}, [rows, owned])
 
 	const missingCost = useMemo(
@@ -368,13 +397,21 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 							<div className="tcgb-deck-missing-name">
 								<a className="tcgb-card-link" onClick={() => openCard(row)}>
 									{row.meta?.name ?? row.id}
+									{row.meta && (row.meta.setCode || row.meta.number) && (
+										<span className="tcgb-deck-missing-set">
+											{' '}
+											{[row.meta.setCode, row.meta.number].filter(Boolean).join(' ')}
+										</span>
+									)}
 								</a>
-								{row.ownedQty > 0 && row.reservedQty > 0 && (
+								{row.showNote && ((row.ownedQty > 0 && row.reservedQty > 0) || row.allocatedQty > 0) && (
 									<span className="tcgb-deck-missing-note">
 										{t('deck.missing-reserved', {
 											owned: row.ownedQty,
 											reserved: row.reservedQty,
 										})}
+										{row.allocatedQty > 0 &&
+											` · ${t('deck.missing-allocated', { allocated: row.allocatedQty })}`}
 									</span>
 								)}
 							</div>
@@ -390,7 +427,7 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 									title={t('deck.add-missing')}
 									onClick={() => {
 										const meta = row.meta
-										if (meta) void plugin.openAddOwnedCard(meta, row.link, row.missingQty)
+										if (meta) void plugin.openAddOwnedCard(meta, row.link, row.missingQty, file)
 									}}
 								>
 									+
