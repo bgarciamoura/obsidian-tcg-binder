@@ -662,8 +662,10 @@ export default class TcgBinderPlugin extends Plugin {
 	/**
 	 * Adds an already-known card (existing note) to a collection — used by the
 	 * deck view's "missing from collection" list after the cards were bought.
+	 * The new copies are allocated to `forDeck`: they satisfy THAT deck's
+	 * missing math and are reserved from every other deck.
 	 */
-	async openAddOwnedCard(meta: CardMeta, link: string, initialQuantity: number): Promise<void> {
+	async openAddOwnedCard(meta: CardMeta, link: string, initialQuantity: number, forDeck: TFile): Promise<void> {
 		const collections = await this.ensureCollections()
 		const preview = {
 			name: meta.name,
@@ -687,6 +689,7 @@ export default class TcgBinderPlugin extends Plugin {
 							choice.variant,
 							choice.condition,
 						)
+						await this.decks.bumpAllocated(forDeck, meta.cardId, choice.quantity)
 						new Notice(t('notice.card-added', { name: meta.name }))
 					} catch (error) {
 						new Notice(String(error))

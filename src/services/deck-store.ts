@@ -8,6 +8,13 @@ export interface DeckStoredEntry {
 	/** Wikilink to the card note. */
 	link: string
 	qty: number
+	/**
+	 * Copies bought/assigned specifically to THIS deck (via the missing
+	 * list's add-to-collection button). They are guaranteed to this deck in
+	 * the missing math and reserved from other decks even while the deck is
+	 * not assembled. Never exceeds qty.
+	 */
+	allocated: number
 }
 
 /** Reads/writes the `entries` array and `format` in a deck note's frontmatter. */
@@ -24,7 +31,34 @@ export class DeckStore {
 			const id = typeof item.id === 'string' && item.id.length > 0 ? item.id : null
 			const qty = typeof item.qty === 'number' && Number.isInteger(item.qty) && item.qty > 0 ? item.qty : null
 			if (!id || !qty) return []
-			return [{ id, qty, link: typeof item.link === 'string' ? item.link : '' }]
+			const allocated =
+				typeof item.allocated === 'number' && Number.isInteger(item.allocated) && item.allocated > 0
+					? Math.min(item.allocated, qty)
+					: 0
+			return [{ id, qty, allocated, link: typeof item.link === 'string' ? item.link : '' }]
+		})
+	}
+
+	/**
+	 * Raises the copies allocated to this deck by `delta`, clamped to the
+	 * line's quantity — used when the user adds missing cards to a collection
+	 * FROM this deck's screen, so the new copies belong here.
+	 */
+	async bumpAllocated(file: TFile, cardId: string, delta: number): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const raw: unknown = fm.entries
+			const list: unknown[] = Array.isArray(raw) ? [...(raw as unknown[])] : []
+			const index = list.findIndex((item) => isRecord(item) && item.id === cardId)
+			if (index < 0 || !isRecord(list[index])) return
+			const current = list[index]
+			const qty = typeof current.qty === 'number' ? current.qty : 0
+			const allocated = typeof current.allocated === 'number' ? current.allocated : 0
+			const next = Math.max(0, Math.min(qty, allocated + delta))
+			const entry: Record<string, unknown> = { ...current }
+			if (next > 0) entry.allocated = next
+			else delete entry.allocated
+			list[index] = entry
+			fm.entries = list
 		})
 	}
 

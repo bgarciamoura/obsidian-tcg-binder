@@ -47,10 +47,13 @@ export function buildOwnershipMaps(
 	if (plugin.settings.reserveDeckCopies) {
 		for (const deck of plugin.store.listFiles('deck')) {
 			if (deck.path === excludeDeckPath) continue
-			// A deck that is still just a list holds no physical copies.
-			if (!plugin.decks.readAssembled(deck)) continue
+			// An assembled deck holds every copy it lists; a deck that is
+			// still a list holds only the copies explicitly bought FOR it
+			// (allocated via its missing-list add button).
+			const assembled = plugin.decks.readAssembled(deck)
 			for (const entry of plugin.decks.readEntries(deck)) {
-				tally(reserved, entry.id, entry.qty)
+				const held = assembled ? entry.qty : entry.allocated
+				if (held > 0) tally(reserved, entry.id, held)
 			}
 		}
 	}
@@ -104,21 +107,25 @@ export function countMissingCards(
 ): number {
 	const owned = buildOwnershipMaps(plugin, cardIndex, deck.path)
 	// Deck lines of the same name share one owned pool — aggregate first.
-	const needed = new Map<string, { id: string; qty: number }>()
+	const needed = new Map<string, { id: string; qty: number; allocated: number }>()
 	for (const entry of plugin.decks.readEntries(deck)) {
 		const meta = cardIndex.get(entry.id)
 		const key = functionalKey(meta?.nameEn ?? null, meta?.name ?? null, entry.id)
 		const current = needed.get(key)
-		if (current) current.qty += entry.qty
-		else needed.set(key, { id: entry.id, qty: entry.qty })
+		if (current) {
+			current.qty += entry.qty
+			current.allocated += entry.allocated
+		} else needed.set(key, { id: entry.id, qty: entry.qty, allocated: entry.allocated })
 	}
 	let missing = 0
 	for (const [key, line] of needed) {
 		const ownedQty = owned.inCollections.byName.get(key) ?? owned.inCollections.byId.get(line.id) ?? 0
 		const reservedQty = owned.reserved.byName.get(key) ?? owned.reserved.byId.get(line.id) ?? 0
 		// Clamp: reserved copies can push availability negative, but a deck
-		// can never miss more copies than it needs.
-		missing += Math.max(0, line.qty - Math.max(0, ownedQty - reservedQty))
+		// can never miss more copies than it needs. Copies allocated to THIS
+		// deck are guaranteed to it, whatever other decks reserve.
+		const available = Math.max(Math.max(0, ownedQty - reservedQty), line.allocated)
+		missing += Math.max(0, line.qty - available)
 	}
 	return missing
 }
