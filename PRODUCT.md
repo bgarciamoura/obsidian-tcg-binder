@@ -75,7 +75,7 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 
 O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
 
-### Pós-lançamento — entregas até 1.12.0 (2026-08)
+### Pós-lançamento — entregas até 1.13.0 (2026-08)
 
 Notas completas por versão em `docs/release-notes/`. Destaques desde o lançamento:
 
@@ -92,6 +92,7 @@ Notas completas por versão em `docs/release-notes/`. Destaques desde o lançame
 - [x] **1.10.0** — **busca global no dashboard**: todas as coleções e decks de uma vez, com qty/variante/condição por linha, atalho para a lista dona e viewer navegável; sem acento e por nome em inglês, 100% offline
 - [x] **1.11.0** — **dividir coleção por tipo**: comando distribui uma coleção mista em coleções por tipo (Itens/Apoiadores/Estádios/Ferramentas, energias básicas/especiais, Pokémon por tipo de energia), reusando coleções existentes pelo nome; re-executável, com backfill de `types` via cache de set
 - [x] **1.12.0** — **"Possuo todas"** no deck (modal mapeia cada tipo → coleção escolhida pelo usuário, top-up idempotente); **limpar wishlist** (comando + botão com confirmação); **reservas explicadas** na lista de faltantes ("4 na coleção · 3 reservadas") + toggle **"Montado"** por deck (lista não montada não reserva cópias); bolinha sutil de faltantes nos decks do dashboard; fixes: datas em UTC (carimbo `added` no dia seguinte) e telas abrindo no meio por herdar o scroll da anterior
+- [x] **1.13.0** — **"Reservada para"** no detalhe da carta: badges com cada deck que usa a carta (identidade por nome funcional, decks não montados esmaecidos); rótulo neutro "Em decks" com a reserva desligada
 
 ## Modelo de dados (proposta — validar na Fase 1)
 
