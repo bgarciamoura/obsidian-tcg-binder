@@ -8,6 +8,7 @@ import { resolveImageSource } from '../utils/vault'
 import type { StoredEntry } from '../services/collection-store'
 import { t } from '../i18n'
 import { useVaultVersion } from '../hooks/useVaultVersion'
+import { countMissingCards } from '../services/deck-availability'
 import { CollectionView } from './CollectionView'
 import { DeckView } from './DeckView'
 import { PortfolioChart } from './PortfolioChart'
@@ -49,6 +50,12 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 	const collections = useMemo(() => plugin.store.listFiles('collection'), [plugin, version])
 	const decks = useMemo(() => plugin.store.listFiles('deck'), [plugin, version])
 	const cardIndex = useMemo(() => plugin.cardNotes.buildIndex(), [plugin, version])
+
+	/** Missing-card count per deck, for the subtle dashboard indicator. */
+	const deckMissing = useMemo(
+		() => new Map(decks.map((file) => [file.path, countMissingCards(plugin, file, cardIndex)])),
+		[decks, plugin, cardIndex, version],
+	)
 
 	const [query, setQuery] = useState('')
 	const searching = query.trim().length > 0
@@ -115,7 +122,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 					version={version}
 					onBack={() => setSelected(null)}
 				/>
-				<ScrollTopFab />
+				<ScrollTopFab resetKey={`collection:${selected.file.path}`} />
 			</>
 		)
 	}
@@ -128,7 +135,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 					version={version}
 					onBack={() => setSelected(null)}
 				/>
-				<ScrollTopFab />
+				<ScrollTopFab resetKey={`deck:${selected.file.path}`} />
 			</>
 		)
 	}
@@ -295,6 +302,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 					{decks.map((file) => {
 						const total = plugin.decks.readEntries(file).reduce((sum, e) => sum + e.qty, 0)
 						const cover = resolveImageSource(app, plugin.store.getCover(file))
+						const missing = deckMissing.get(file.path) ?? 0
 						return (
 							<div key={file.path} className="tcgb-list-item">
 								<button
@@ -310,6 +318,13 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 										/>
 									)}
 									<span className="tcgb-list-name">{file.basename}</span>
+									{missing > 0 && (
+										<span
+											className="tcgb-list-missing-dot"
+											title={t('root.deck-missing', { count: missing })}
+											aria-label={t('root.deck-missing', { count: missing })}
+										/>
+									)}
 									<span className={`tcgb-list-meta ${total === 60 ? 'tcgb-list-meta-ok' : ''}`}>
 										{total}/60
 									</span>
@@ -340,7 +355,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 			)}
 			</>
 			)}
-			<ScrollTopFab />
+			<ScrollTopFab resetKey="dashboard" />
 		</div>
 	)
 }
@@ -349,8 +364,13 @@ export function BinderRoot({ plugin }: BinderRootProps) {
  * Floating back-to-top button. Rendered as the last child of the content so
  * `position: sticky` pins it to the bottom edge of the view while scrolled;
  * it fades in once the view's scroll container has moved past one screenful.
+ *
+ * It also owns scroll RESET: dashboard and collection/deck views swap inside
+ * the same `.view-content`, so without a reset the new screen inherits the
+ * old one's scroll offset ("opens halfway down"). `resetKey` identifies the
+ * current screen — every change snaps the container back to the top.
  */
-function ScrollTopFab() {
+function ScrollTopFab({ resetKey }: { resetKey: string }) {
 	const [visible, setVisible] = useState(false)
 	const anchorRef = useRef<HTMLDivElement>(null)
 	const scrollRef = useRef<HTMLElement | null>(null)
@@ -370,6 +390,10 @@ function ScrollTopFab() {
 			scrollEl.removeEventListener('scroll', onScroll)
 		}
 	}, [])
+
+	useEffect(() => {
+		scrollRef.current?.scrollTo({ top: 0 })
+	}, [resetKey])
 
 	return (
 		<div ref={anchorRef} className="tcgb-fab-anchor">
