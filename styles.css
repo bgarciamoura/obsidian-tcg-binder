@@ -737,6 +737,13 @@ select.tcgb-cond {
 	font-size: var(--font-ui-smaller);
 }
 
+/* Printing identity on missing rows — same name may span several sets */
+.tcgb-deck-missing-set {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: 400;
+}
+
 .tcgb-deck-missing-qty {
 	min-width: 2.5em;
 	color: var(--text-muted);
@@ -1465,6 +1472,55 @@ select.tcgb-cond {
 	align-items: center;
 	gap: var(--size-2-2);
 	margin-bottom: var(--size-2-2);
+}
+
+/* Dashboard two-column layout (toggle next to the title) */
+.tcgb-dashboard-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
+
+.tcgb-list-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	column-gap: var(--size-4-2);
+}
+
+/*
+ * Half-width rows can't fit cover + name + meta on one line — the nowrap
+ * meta always wins and the name ellipsizes to a letter. In the grid the
+ * name takes its own line above the meta, the cover slims to 42%, and
+ * EVERY row (covered or not) shares the same height so the grid scans
+ * as aligned rows.
+ */
+@media (min-width: 601px) {
+	.tcgb-list-grid .tcgb-list-row {
+		min-height: 84px;
+		flex-wrap: wrap;
+		align-content: center;
+		justify-content: flex-start;
+		row-gap: var(--size-2-1);
+	}
+
+	.tcgb-list-grid .tcgb-list-name {
+		flex: 0 0 100%;
+	}
+
+	.tcgb-list-grid .tcgb-list-row-covered {
+		padding-left: calc(42% + var(--size-4-4));
+	}
+
+	.tcgb-list-grid .tcgb-list-cover {
+		width: calc(42% + 14px);
+	}
+}
+
+@media (max-width: 600px) {
+	.tcgb-list-grid {
+		grid-template-columns: 1fr;
+	}
 }
 
 .tcgb-list-item .tcgb-list-row {

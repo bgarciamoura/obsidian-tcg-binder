@@ -60,6 +60,15 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 	const [query, setQuery] = useState('')
 	const searching = query.trim().length > 0
 
+	// Dashboard lists layout — persisted so the choice survives reloads.
+	const [layout, setLayout] = useState<'list' | 'grid'>(plugin.settings.dashboardLayout)
+	const toggleLayout = () => {
+		const next = layout === 'list' ? 'grid' : 'list'
+		setLayout(next)
+		plugin.settings.dashboardLayout = next
+		void plugin.saveSettings()
+	}
+
 	/** Global search: every entry of every collection, matched by card name. */
 	const results = useMemo(() => {
 		if (!searching) return []
@@ -142,7 +151,17 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 
 	return (
 		<div className="tcgb-root">
-			<h2 className="tcgb-title">{t('view.title')}</h2>
+			<div className="tcgb-dashboard-header">
+				<h2 className="tcgb-title">{t('view.title')}</h2>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('root.layout-toggle')}
+					aria-label={t('root.layout-toggle')}
+					onClick={toggleLayout}
+				>
+					{layout === 'list' ? '▦' : '≣'}
+				</button>
+			</div>
 
 			<input
 				className="tcgb-global-search"
@@ -272,24 +291,26 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 						{t('root.collections')}
 						<span className="tcgb-count-pill">{collections.length}</span>
 					</h3>
-					{collections.map((file) => (
-						<div key={file.path} className="tcgb-list-item">
-							<CollectionRow
-								plugin={plugin}
-								file={file}
-								cardIndex={cardIndex}
-								onOpen={() => setSelected({ kind: 'collection', file })}
-							/>
-							<button
-								className="tcgb-row-action tcgb-list-delete"
-								aria-label={t('confirm.delete')}
-								title={t('confirm.delete')}
-								onClick={() => confirmDelete(file, 'collection')}
-							>
-								×
-							</button>
-						</div>
-					))}
+					<div className={layout === 'grid' ? 'tcgb-list-grid' : ''}>
+						{collections.map((file) => (
+							<div key={file.path} className="tcgb-list-item">
+								<CollectionRow
+									plugin={plugin}
+									file={file}
+									cardIndex={cardIndex}
+									onOpen={() => setSelected({ kind: 'collection', file })}
+								/>
+								<button
+									className="tcgb-row-action tcgb-list-delete"
+									aria-label={t('confirm.delete')}
+									title={t('confirm.delete')}
+									onClick={() => confirmDelete(file, 'collection')}
+								>
+									×
+								</button>
+							</div>
+						))}
+					</div>
 				</section>
 			)}
 
@@ -299,6 +320,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 						{t('root.decks')}
 						<span className="tcgb-count-pill">{decks.length}</span>
 					</h3>
+					<div className={layout === 'grid' ? 'tcgb-list-grid' : ''}>
 					{decks.map((file) => {
 						const total = plugin.decks.readEntries(file).reduce((sum, e) => sum + e.qty, 0)
 						const cover = resolveImageSource(app, plugin.store.getCover(file))
@@ -340,6 +362,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 							</div>
 						)
 					})}
+					</div>
 				</section>
 			)}
 

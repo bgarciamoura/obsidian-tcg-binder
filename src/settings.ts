@@ -37,6 +37,8 @@ export interface TcgBinderSettings {
 	cardLanguage: TcgdexLanguage
 	/** Global default for list vs card-grid layout; every surface has a local toggle. */
 	defaultViewMode: ViewMode
+	/** Dashboard lists layout: single list or two columns. Set by the dashboard toggle. */
+	dashboardLayout: 'list' | 'grid'
 	/** Optional pokemontcg.io key — only raises rate limits. */
 	pokemonTcgApiKey: string
 	/**
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: TcgBinderSettings = {
 	dataSource: 'tcgdex',
 	cardLanguage: 'en',
 	defaultViewMode: 'list',
+	dashboardLayout: 'list',
 	pokemonTcgApiKey: '',
 	reserveDeckCopies: false,
 }
