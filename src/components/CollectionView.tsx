@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Menu, Notice, TFile } from 'obsidian'
+import { Notice, TFile } from 'obsidian'
 import { useApp } from '../context'
-import { CoverPositionModal } from '../modals/cover-position-modal'
-import { resolveImageSource } from '../utils/vault'
+import { showCoverMenu } from '../utils/cover-menu'
 import { localIsoDate } from '../utils/date'
 import { t } from '../i18n'
 import { CARD_CONDITIONS, CARD_VARIANTS } from '../types'
@@ -16,7 +15,6 @@ import type { CardMeta } from '../services/card-notes'
 import type { StoredEntry } from '../services/collection-store'
 import { FilePickerModal } from '../modals/file-picker-modal'
 import { CardDetailModal } from '../modals/card-detail-modal'
-import { CoverPickerModal } from '../modals/cover-picker-modal'
 import type TcgBinderPlugin from '../main'
 
 interface CollectionViewProps {
@@ -204,45 +202,8 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 		new CardDetailModal(app, plugin, detailMetas, Math.max(0, start)).open()
 	}
 
-	const pickCover = () => {
-		const candidates = detailMetas.filter((meta) => meta.image !== null)
-		new CoverPickerModal(app, candidates, (meta) => {
-			const raw = meta.localImagePath ?? (meta.image && /^https?:\/\//.test(meta.image) ? meta.image : null)
-			if (!raw) return
-			void plugin.store.setCover(file, raw).then(() => {
-				new Notice(t('notice.cover-set'))
-			})
-		}).open()
-	}
-
-	const showCoverMenu = (event: MouseEvent) => {
-		const menu = new Menu()
-		menu.addItem((item) => {
-			item.setTitle(t('cover.choose')).setIcon('image').onClick(pickCover)
-		})
-		if (plugin.store.getCover(file)) {
-			menu.addItem((item) => {
-				item.setTitle(t('cover.position'))
-					.setIcon('move-vertical')
-					.onClick(() => {
-						const url = resolveImageSource(app, plugin.store.getCover(file))
-						if (!url) return
-						new CoverPositionModal(app, url, plugin.store.getCoverPosition(file), (pos) => {
-							void plugin.store.setCoverPosition(file, pos)
-						}).open()
-					})
-			})
-			menu.addItem((item) => {
-				item.setTitle(t('cover.remove'))
-					.setIcon('trash')
-					.onClick(() => {
-						void plugin.store.removeCover(file).then(() => {
-							new Notice(t('notice.cover-removed'))
-						})
-					})
-			})
-		}
-		menu.showAtMouseEvent(event)
+	const openCoverMenu = (event: MouseEvent) => {
+		showCoverMenu(app, plugin, file, detailMetas, event)
 	}
 
 	const isWishlist = plugin.store.getRole(file) === 'wishlist'
@@ -409,7 +370,7 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 					title={t('cover.set')}
 					aria-label={t('cover.set')}
 					onClick={(event) => {
-						showCoverMenu(event.nativeEvent)
+						openCoverMenu(event.nativeEvent)
 					}}
 				>
 					🖼

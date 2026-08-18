@@ -43,8 +43,8 @@ export default tseslint.config(
 		rules: {
 			"obsidianmd/ui/sentence-case-locale-module": ["error", {
 				// Product name and acronyms are not prose
-				ignoreWords: ["TCG", "Binder", "Pokémon", "API", "SVI", "Live", "Pikachu", "CSV", "ManaBox", "Collectr", "Collector", "TCGdex", "Scrydex", "English", "Enter", "PNG", "JPG", "WEBP", "GIF", "AVIF", "Poké", "Ball", "Master"],
-				ignoreRegex: ["^TCG Binder$", "\"SVI 45\"", "\"4 Pikachu ex SVI 45\"", "^\\{", "^\\d", "^Name,", "^\"", "^\\w+ Pokémon$"],
+				ignoreWords: ["TCG", "Binder", "Pokémon", "API", "SVI", "Live", "Pikachu", "CSV", "ManaBox", "Collectr", "Collector", "TCGdex", "Scrydex", "English", "Enter", "PNG", "JPG", "WEBP", "GIF", "AVIF", "Poké", "Ball", "Master", "URL", "https"],
+				ignoreRegex: ["^TCG Binder$", "\"SVI 45\"", "\"4 Pikachu ex SVI 45\"", "^\\{", "^\\d", "^Name,", "^\"", "^\\w+ Pokémon$", "^https"],
 			}],
 		},
 	},
