@@ -3,6 +3,7 @@ import { FRONTMATTER_TYPE_KEY } from '../constants'
 import type { CardData } from './card-data/card-data-source'
 import { ensureFolder, findAvailablePath, listMarkdownFilesIn, resolveImageSource } from '../utils/vault'
 import { sanitizeFileName } from '../utils/file-name'
+import { localIsoDate } from '../utils/date'
 import { isBasicEnergy } from '../domain/deck-rules'
 import { canonicalSupertype } from '../domain/card-fields'
 
@@ -162,7 +163,7 @@ export class CardNotes {
 			if (card.imageLarge) fm.image = card.imageLarge
 			if (card.marketPrice !== null) {
 				fm['price-market'] = card.marketPrice
-				fm['price-updated'] = new Date().toISOString().slice(0, 10)
+				fm['price-updated'] = localIsoDate()
 			}
 		})
 		return file
@@ -226,7 +227,7 @@ export class CardNotes {
 	async updatePrice(file: TFile, price: number): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
 			fm['price-market'] = price
-			fm['price-updated'] = new Date().toISOString().slice(0, 10)
+			fm['price-updated'] = localIsoDate()
 		})
 	}
 }

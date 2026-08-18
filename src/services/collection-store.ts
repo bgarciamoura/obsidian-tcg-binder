@@ -2,6 +2,7 @@ import { App, TFile } from 'obsidian'
 import type { CardCondition, CardVariant } from '../types'
 import { isCardCondition, isCardVariant } from '../types'
 import { isRecord } from '../utils/value-guards'
+import { localIsoDate } from '../utils/date'
 
 /** One line of a collection: a card in a specific variant + condition. */
 export interface StoredEntry {
@@ -22,7 +23,7 @@ export interface StoredEntry {
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/
 
 function today(): string {
-	return new Date().toISOString().slice(0, 10)
+	return localIsoDate()
 }
 
 export interface EntryKey {
