@@ -990,9 +990,8 @@ export default class TcgBinderPlugin extends Plugin {
 
 		const progress = new Notice(t('split.running'), 0)
 		try {
-			let index = this.cardNotes.buildIndex()
+			const index = this.cardNotes.buildIndex()
 			const stamped = await this.backfillPokemonTypes(index, entries.map((entry) => entry.id))
-			if (stamped > 0) index = this.cardNotes.buildIndex()
 
 			const { targets, resolveTarget } = this.bucketTargetResolver()
 
@@ -1002,7 +1001,9 @@ export default class TcgBinderPlugin extends Plugin {
 			for (const [i, entry] of entries.entries()) {
 				progress.setMessage(`${t('split.running')} ${i + 1}/${entries.length}`)
 				const meta = index.get(entry.id)
-				const bucket = meta ? bucketFor(meta) : null
+				const bucket = meta
+					? bucketFor({ ...meta, types: meta.types ?? stamped.get(entry.id) ?? null })
+					: null
 				if (!bucket) {
 					skipped++
 					continue
@@ -1026,19 +1027,22 @@ export default class TcgBinderPlugin extends Plugin {
 	}
 
 	private bucketName(bucket: TypeBucket): string {
-		if (bucket.startsWith('pokemon-')) {
-			const type = bucket.slice('pokemon-'.length)
-			return t('bucket.pokemon-type', { type: t(`type.${type}` as Parameters<typeof t>[0]) })
-		}
+		// Every bucket (including pokemon-<type>) has its own locale key, so
+		// each language can name the collections naturally.
 		return t(`bucket.${bucket}` as Parameters<typeof t>[0])
 	}
 
 	/**
 	 * Stamps missing `types` on Pokémon notes (they predate the field) — one
-	 * cached set fetch per set, not one request per card. Returns how many
-	 * notes were stamped; the caller rebuilds its index when > 0.
+	 * cached set fetch per set, not one request per card. Returns the stamped
+	 * types by card id: callers MUST use this overlay instead of re-reading
+	 * the notes, because the metadataCache reparses asynchronously and still
+	 * serves the old (typeless) frontmatter right after the write.
 	 */
-	private async backfillPokemonTypes(index: Map<string, CardMeta>, ids: string[]): Promise<number> {
+	private async backfillPokemonTypes(
+		index: Map<string, CardMeta>,
+		ids: string[],
+	): Promise<Map<string, string[]>> {
 		const needingTypes = ids
 			.map((id) => index.get(id))
 			.filter(
@@ -1051,7 +1055,7 @@ export default class TcgBinderPlugin extends Plugin {
 			list.push(meta)
 			bySet.set(meta.setId as string, list)
 		}
-		let stamped = 0
+		const stamped = new Map<string, string[]>()
 		for (const [setId, metas] of bySet) {
 			const cards = await this.setCards.getSetCards(setId).catch((error: unknown) => {
 				console.error(`[TCG Binder] type backfill failed for set ${setId}`, error)
@@ -1061,7 +1065,7 @@ export default class TcgBinderPlugin extends Plugin {
 				const types = cards.find((card) => card.id === meta.cardId)?.details?.types
 				if (types && types.length > 0) {
 					await this.cardNotes.setTypes(meta.file, types)
-					stamped++
+					stamped.set(meta.cardId, types)
 				}
 			}
 		}
@@ -1128,16 +1132,17 @@ export default class TcgBinderPlugin extends Plugin {
 			else byId.set(line.id, { ...line })
 		}
 
-		let index = this.cardNotes.buildIndex()
+		const index = this.cardNotes.buildIndex()
 		const stamped = await this.backfillPokemonTypes(index, [...byId.keys()])
-		if (stamped > 0) index = this.cardNotes.buildIndex()
 
 		// Group the deck's cards by bucket; unknown-type cards get their own
 		// row so the user can still route (or skip) them.
 		const groups = new Map<string, { newName: string | null; lines: { id: string; link: string; qty: number }[] }>()
 		for (const line of byId.values()) {
 			const meta = index.get(line.id)
-			const bucket = meta ? bucketFor(meta) : null
+			const bucket = meta
+				? bucketFor({ ...meta, types: meta.types ?? stamped.get(line.id) ?? null })
+				: null
 			const key = bucket ?? 'unknown'
 			const group = groups.get(key) ?? { newName: bucket ? this.bucketName(bucket) : null, lines: [] }
 			group.lines.push(line)

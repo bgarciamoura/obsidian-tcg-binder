@@ -11,6 +11,20 @@ describe('canonicalPokemonType', () => {
 		expect(canonicalPokemonType('Incolor')).toBe('colorless')
 	})
 
+	it('treats the videogame name Normal as the TCG Colorless', () => {
+		expect(canonicalPokemonType('Normal')).toBe('colorless')
+	})
+
+	it('matches without accents and via extra aliases', () => {
+		expect(canonicalPokemonType('Eletrico')).toBe('lightning')
+		expect(canonicalPokemonType('ELÉTRICO')).toBe('lightning')
+		expect(canonicalPokemonType('Aço')).toBe('metal')
+		expect(canonicalPokemonType('Escuridão')).toBe('darkness')
+		expect(canonicalPokemonType('Dark')).toBe('darkness')
+		expect(canonicalPokemonType('Steel')).toBe('metal')
+		expect(canonicalPokemonType('Electric')).toBe('lightning')
+	})
+
 	it('returns null for unknown values', () => {
 		expect(canonicalPokemonType('???')).toBeNull()
 		expect(canonicalPokemonType(null)).toBeNull()
