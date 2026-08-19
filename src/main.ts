@@ -24,6 +24,7 @@ import { ImportDeckModal } from './modals/import-deck-modal'
 import { FilePickerModal } from './modals/file-picker-modal'
 import { ConfirmModal } from './modals/confirm-modal'
 import { BucketChoices, DeckToCollectionsModal } from './modals/deck-to-collections-modal'
+import { DeckRevisionsModal } from './modals/deck-revisions-modal'
 import { SetPickerModal } from './modals/set-picker-modal'
 import { QuickAddModal } from './modals/quick-add-modal'
 import type { SetInfo } from './services/card-data/card-data-source'
@@ -854,9 +855,14 @@ export default class TcgBinderPlugin extends Plugin {
 
 	/** Copies the deck to the clipboard in the TCG Live text format. */
 	async exportDeck(file: TFile): Promise<void> {
+		await this.exportDecklist(this.decks.readEntries(file))
+	}
+
+	/** Copies any decklist (current or a saved revision) in TCG Live format. */
+	async exportDecklist(entries: { id: string; qty: number }[]): Promise<void> {
 		const index = this.cardNotes.buildIndex()
 		const text = serializeCardList(
-			this.decks.readEntries(file).map((entry) => {
+			entries.map((entry) => {
 				const meta = index.get(entry.id)
 				return {
 					quantity: entry.qty,
@@ -869,6 +875,11 @@ export default class TcgBinderPlugin extends Plugin {
 		)
 		await navigator.clipboard.writeText(text)
 		new Notice(t('notice.deck-copied'))
+	}
+
+	/** Saved decklist snapshots: view, diff, restore, export. */
+	openDeckRevisions(file: TFile): void {
+		new DeckRevisionsModal(this.app, this, file).open()
 	}
 
 	/** Set-tracking collection: every card of a chosen set as a qty-0 checklist. */

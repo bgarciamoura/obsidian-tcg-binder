@@ -737,6 +737,29 @@ select.tcgb-cond {
 	font-size: var(--font-ui-smaller);
 }
 
+/* Deck revision panels — expanded list / diff under a revision row */
+.tcgb-rev-panel {
+	margin: 0 0 var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-rev-line {
+	padding: 1px 0;
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-rev-add {
+	color: var(--color-green);
+}
+
+.tcgb-rev-remove {
+	color: var(--color-red);
+}
+
 /* Printing identity on missing rows — same name may span several sets */
 .tcgb-deck-missing-set {
 	color: var(--text-muted);

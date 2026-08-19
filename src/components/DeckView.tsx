@@ -248,6 +248,9 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 				>
 					{t('deck.to-collections')}
 				</button>
+				<button className="tcgb-btn" onClick={() => plugin.openDeckRevisions(file)}>
+					{t('deck.revisions')}
+				</button>
 				<button
 					className="tcgb-btn tcgb-mode-toggle"
 					title={t('view.toggle-mode')}
