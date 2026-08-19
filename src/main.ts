@@ -861,13 +861,22 @@ export default class TcgBinderPlugin extends Plugin {
 	/** Copies any decklist (current or a saved revision) in TCG Live format. */
 	async exportDecklist(entries: { id: string; qty: number }[]): Promise<void> {
 		const index = this.cardNotes.buildIndex()
+		// Notes created while the catalog still lacked a set's decklist code
+		// carry an empty set-code; without one, TCG Live misparses the line
+		// as a basic energy and rejects it — resolve through the catalog.
+		await this.setCatalog.load()
+		const missingCode: string[] = []
 		const text = serializeCardList(
 			entries.map((entry) => {
 				const meta = index.get(entry.id)
+				const setCode =
+					meta?.setCode ??
+					(meta?.setId ? (this.setCatalog.findByCode(meta.setId)?.code ?? null) : null)
+				if (meta && setCode === null) missingCode.push(meta.name)
 				return {
 					quantity: entry.qty,
 					name: meta?.name ?? entry.id,
-					setCode: meta?.setCode ?? null,
+					setCode,
 					number: meta?.number ?? null,
 					supertype: meta?.supertype ?? null,
 				}
@@ -875,6 +884,9 @@ export default class TcgBinderPlugin extends Plugin {
 		)
 		await navigator.clipboard.writeText(text)
 		new Notice(t('notice.deck-copied'))
+		if (missingCode.length > 0) {
+			new Notice(t('notice.export-missing-codes', { cards: missingCode.join(', ') }))
+		}
 	}
 
 	/** Saved decklist snapshots: view, diff, restore, export. */

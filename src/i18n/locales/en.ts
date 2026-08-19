@@ -147,6 +147,8 @@ export const en = {
 	'deck.missing-reserved': '{owned} in collection · {reserved} reserved by other decks',
 	'deck.missing-allocated': '{allocated} reserved for this deck',
 	'notice.deck-copied': 'Decklist copied to clipboard',
+	'notice.export-missing-codes':
+		'No set code found for: {cards}. These lines may fail to import in TCG Live.',
 	'notice.no-decks': 'No decks yet',
 	'command.import-csv': 'Import collection CSV',
 	'command.update-prices': 'Update prices',

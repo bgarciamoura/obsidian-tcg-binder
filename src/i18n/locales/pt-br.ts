@@ -148,6 +148,8 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'deck.missing-reserved': '{owned} na coleção · {reserved} reservadas em outros decks',
 	'deck.missing-allocated': '{allocated} reservadas para este deck',
 	'notice.deck-copied': 'Decklist copiada para o clipboard',
+	'notice.export-missing-codes':
+		'Sem código de set para: {cards}. Essas linhas podem falhar na importação do TCG Live.',
 	'notice.no-decks': 'Nenhum deck ainda',
 	'command.import-csv': 'Importar CSV de coleção',
 	'command.update-prices': 'Atualizar preços',

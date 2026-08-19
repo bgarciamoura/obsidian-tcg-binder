@@ -81,6 +81,21 @@ export interface SerializableCard {
 }
 
 /**
+ * Set codes TCG Live spells differently from the card databases (both
+ * pokemontcg.io and TCGdex label the Scarlet & Violet promos "SVP", which
+ * Live rejects with "invalid series id"). Applied on export only — imports
+ * already resolve either spelling through the set catalog.
+ */
+const TCG_LIVE_SET_CODE_ALIASES: Record<string, string> = {
+	SVP: 'PR-SV',
+}
+
+export function toTcgLiveSetCode(code: string | null): string | null {
+	if (code === null) return null
+	return TCG_LIVE_SET_CODE_ALIASES[code.toUpperCase()] ?? code
+}
+
+/**
  * Serializes cards into the TCG Live decklist format, grouped into the three
  * canonical sections. Cards without a Pokémon/Energy supertype (including
  * unknown) land under Trainer, mirroring how TCG Live buckets everything else.
@@ -103,7 +118,9 @@ export function serializeCardList(cards: SerializableCard[]): string {
 		const count = items.reduce((sum, card) => sum + card.quantity, 0)
 		total += count
 		const lines = items.map((card) =>
-			[card.quantity, card.name, card.setCode, card.number].filter((part) => part !== null).join(' '),
+			[card.quantity, card.name, toTcgLiveSetCode(card.setCode), card.number]
+				.filter((part) => part !== null)
+				.join(' '),
 		)
 		sections.push(`${title}: ${count}\n${lines.join('\n')}`)
 	}

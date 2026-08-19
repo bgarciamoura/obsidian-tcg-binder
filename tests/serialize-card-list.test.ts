@@ -31,6 +31,13 @@ describe('serializeCardList', () => {
 		expect(text).toBe('Trainer: 1\n1 Mystery card\n\nTotal Cards: 1')
 	})
 
+	it('rewrites database promo codes to the TCG Live spelling', () => {
+		const text = serializeCardList([
+			{ quantity: 3, name: 'Noctowl', setCode: 'SVP', number: '141', supertype: 'Pokémon' },
+		])
+		expect(text).toBe('Pokémon: 3\n3 Noctowl PR-SV 141\n\nTotal Cards: 3')
+	})
+
 	it('round-trips through parseCardList', () => {
 		const cards = [
 			{ quantity: 4, name: 'Pikachu ex', setCode: 'SVI', number: '45', supertype: 'Pokémon' },
