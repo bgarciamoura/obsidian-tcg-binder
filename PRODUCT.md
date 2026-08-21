@@ -75,7 +75,7 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 
 O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
 
-### Pós-lançamento — entregas até 1.16.0 (2026-08)
+### Pós-lançamento — entregas até 1.18.0 (2026-08)
 
 Notas completas por versão em `docs/release-notes/`. Destaques desde o lançamento:
 
@@ -96,6 +96,8 @@ Notas completas por versão em `docs/release-notes/`. Destaques desde o lançame
 - [x] **1.14.0** — fix da coleção "Pokémon" genérica no split (race do metadataCache: tipos recém-carimbados eram relidos antes do reparse); matching de tipos sem acento/caixa + aliases de videogame (Normal→Incolor, Electric, Dark, Steel/Aço); nomes pt-BR naturais por tipo (Pokémon Elétricos, Normais, Psíquicos, Sombrios)
 - [x] **1.15.0** — **capa por URL externa ou upload** (arquivo salvo em `covers/` no vault; menu de capa unificado em helper compartilhado); toggle **"Montado" no import de deck** (default desligado — netdeck importado não reserva cópias até ser marcado)
 - [x] **1.16.0** — **alocação por deck** (`allocated` na entry: cartas adicionadas pela lista de faltantes pertencem àquele deck — garantidas na conta dele e reservadas dos outros, mesmo sem estar montado); **toggle lista/duas colunas no dashboard** (persistido; grid com altura uniforme e nome em linha própria); fix: lista de faltantes exibe uma linha por impressão (pool por nome distribuído na ordem do deck) em vez de fundir tudo na primeira impressão
+- [x] **1.17.0** — **revisões de deck** (snapshots no frontmatter: salvar com rótulo, ver lista, diff vs atual, restaurar com backup automático, exportar, excluir); fix no export (códigos de set faltantes resolvidos + alias de promo do TCG Live)
+- [x] **1.18.0** — **rastreador de compras** (🛒 "compradas, a caminho" por impressão; número grande vira o para-comprar, linha 100% comprada esmaece, custo/wishlist ignoram compradas, chegada via + baixa o contador; badges "2/4" de cobertura por linha e tile "A caminho"); **status de deck em 3 estados** (Montado/Montando/Lista com selos no dashboard, promoção automática Lista→Montando por atividade de compra, import nasce Lista); **renomear coleção/deck pela UI** (✎ no header, wikilinks preservados)
 
 ## Modelo de dados (proposta — validar na Fase 1)
 
