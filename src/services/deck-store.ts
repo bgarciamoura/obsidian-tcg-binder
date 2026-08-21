@@ -16,7 +16,18 @@ export interface DeckStoredEntry {
 	 * not assembled. Never exceeds qty.
 	 */
 	allocated: number
+	/**
+	 * Copies bought but not yet in hand ("on the way"). NOT ownership: they
+	 * never count as collection copies or reserve anything — they only stop
+	 * the missing list from telling the user to buy them again. Registering
+	 * the arrival (the missing list's + button) burns them down. Never
+	 * exceeds qty.
+	 */
+	ordered: number
 }
+
+/** Deck lifecycle: physically built, actively being hunted, or just a list. */
+export type DeckStatus = 'assembled' | 'building' | 'list'
 
 /** A saved snapshot of the decklist, stored in the deck's own frontmatter. */
 export interface DeckRevision {
@@ -46,7 +57,34 @@ export class DeckStore {
 				typeof item.allocated === 'number' && Number.isInteger(item.allocated) && item.allocated > 0
 					? Math.min(item.allocated, qty)
 					: 0
-			return [{ id, qty, allocated, link: typeof item.link === 'string' ? item.link : '' }]
+			const ordered =
+				typeof item.ordered === 'number' && Number.isInteger(item.ordered) && item.ordered > 0
+					? Math.min(item.ordered, qty)
+					: 0
+			return [{ id, qty, allocated, ordered, link: typeof item.link === 'string' ? item.link : '' }]
+		})
+	}
+
+	/**
+	 * Adjusts the "bought, on the way" count of a line by `delta`, clamped
+	 * to [0, qty]. Positive when the user marks a purchase, negative when
+	 * the cards arrive and get registered.
+	 */
+	async bumpOrdered(file: TFile, cardId: string, delta: number): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const raw: unknown = fm.entries
+			const list: unknown[] = Array.isArray(raw) ? [...(raw as unknown[])] : []
+			const index = list.findIndex((item) => isRecord(item) && item.id === cardId)
+			if (index < 0 || !isRecord(list[index])) return
+			const current = list[index]
+			const qty = typeof current.qty === 'number' ? current.qty : 0
+			const ordered = typeof current.ordered === 'number' ? current.ordered : 0
+			const next = Math.max(0, Math.min(qty, ordered + delta))
+			const entry: Record<string, unknown> = { ...current }
+			if (next > 0) entry.ordered = next
+			else delete entry.ordered
+			list[index] = entry
+			fm.entries = list
 		})
 	}
 
@@ -156,24 +194,35 @@ export class DeckStore {
 	}
 
 	/**
-	 * Whether the deck is physically assembled with real cards. Only assembled
-	 * decks reserve collection copies in the missing math ("reserve deck
-	 * copies" setting) — a deck that is still just a list should not hold the
-	 * copies another deck actually contains. Defaults to true: existing decks
-	 * keep today's reserving behavior.
+	 * Lifecycle of a deck:
+	 * - 'assembled': physically built — reserves every copy it lists.
+	 * - 'building': the user is actively hunting its cards — flagged on the
+	 *   dashboard; reserves only the copies bought for it (allocated).
+	 * - 'list': just an idea/reference — reserves only allocated copies too.
+	 *
+	 * Default is 'assembled' (legacy behavior); the pre-status boolean
+	 * `assembled: false` reads as 'building' (users unticked exactly the
+	 * decks they were completing).
 	 */
-	readAssembled(file: TFile): boolean {
+	readStatus(file: TFile): DeckStatus {
 		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
-		return frontmatter?.assembled !== false
+		const status: unknown = frontmatter?.status
+		if (status === 'assembled' || status === 'building' || status === 'list') return status
+		return frontmatter?.assembled === false ? 'building' : 'assembled'
 	}
 
-	async setAssembled(file: TFile, assembled: boolean): Promise<void> {
+	async setStatus(file: TFile, status: DeckStatus): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-			// True is the default — keep the frontmatter clean instead of
-			// stamping "assembled: true" on every deck.
-			if (assembled) delete fm.assembled
-			else fm.assembled = false
+			// 'assembled' is the default — keep the frontmatter clean.
+			if (status === 'assembled') delete fm.status
+			else fm.status = status
+			delete fm.assembled // legacy boolean, superseded by status
 		})
+	}
+
+	/** Only assembled decks hold (and therefore reserve) their full list. */
+	readAssembled(file: TFile): boolean {
+		return this.readStatus(file) === 'assembled'
 	}
 
 	async addEntry(file: TFile, cardId: string, cardLink: string, qty: number): Promise<void> {

@@ -206,19 +206,24 @@
 	white-space: nowrap;
 }
 
-/* "Assembled" toggle — whether this deck reserves collection copies */
-.tcgb-assembled {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--size-2-2);
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	cursor: pointer;
+/* "Assembled" pill on dashboard deck rows — this deck is physically built */
+.tcgb-list-assembled,
+.tcgb-list-building {
+	flex-shrink: 0;
+	padding: 0 var(--size-2-3);
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
 	white-space: nowrap;
 }
 
-.tcgb-assembled input {
-	cursor: pointer;
+.tcgb-list-assembled {
+	color: var(--color-green);
+}
+
+/* The state the user tracks: actively hunting this deck's cards */
+.tcgb-list-building {
+	color: var(--color-orange);
 }
 
 /* Subtle "this deck is missing cards" hint — a small dot, details on hover */
@@ -758,6 +763,18 @@ select.tcgb-cond {
 
 .tcgb-rev-remove {
 	color: var(--color-red);
+}
+
+/* Shopping tracker — "2/4" coverage badge and bought-on-the-way state */
+.tcgb-deck-coverage {
+	flex-shrink: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+.tcgb-missing-ordered-done {
+	opacity: 0.55;
 }
 
 /* Printing identity on missing rows — same name may span several sets */

@@ -25,6 +25,8 @@ import { FilePickerModal } from './modals/file-picker-modal'
 import { ConfirmModal } from './modals/confirm-modal'
 import { BucketChoices, DeckToCollectionsModal } from './modals/deck-to-collections-modal'
 import { DeckRevisionsModal } from './modals/deck-revisions-modal'
+import { RenameModal } from './modals/rename-modal'
+import type { DeckStatus } from './services/deck-store'
 import { SetPickerModal } from './modals/set-picker-modal'
 import { QuickAddModal } from './modals/quick-add-modal'
 import type { SetInfo } from './services/card-data/card-data-source'
@@ -691,6 +693,12 @@ export default class TcgBinderPlugin extends Plugin {
 							choice.condition,
 						)
 						await this.decks.bumpAllocated(forDeck, meta.cardId, choice.quantity)
+						// Registering the arrival burns down the on-the-way count.
+						await this.decks.bumpOrdered(forDeck, meta.cardId, -choice.quantity)
+						// Buying activity IS the "actively hunting cards" signal.
+						if (this.decks.readStatus(forDeck) === 'list') {
+							await this.decks.setStatus(forDeck, 'building')
+						}
 						new Notice(t('notice.card-added', { name: meta.name }))
 					} catch (error) {
 						new Notice(String(error))
@@ -730,13 +738,10 @@ export default class TcgBinderPlugin extends Plugin {
 	}
 
 	openImportDeck(): void {
-		new ImportDeckModal(this.app, (name, text, assembled) => this.runDeckImport(name, text, assembled), {
-			// Assembled only matters while copies are reserved — hide otherwise.
-			showAssembled: this.settings.reserveDeckCopies,
-		}).open()
+		new ImportDeckModal(this.app, (name, text, status) => this.runDeckImport(name, text, status)).open()
 	}
 
-	private async runDeckImport(name: string, text: string, assembled: boolean): Promise<ImportSummary> {
+	private async runDeckImport(name: string, text: string, status: DeckStatus): Promise<ImportSummary> {
 		const { entries, errors } = parseCardList(text)
 		const failed = errors.map((e) => e.text)
 		const resolved = await this.resolveCardLines(entries, failed)
@@ -744,7 +749,7 @@ export default class TcgBinderPlugin extends Plugin {
 		const deck = await this.store.createDeck(name || t('default.new-deck-name'))
 		// An imported list is usually a netdeck the user has not built yet —
 		// unless they said otherwise, it must not reserve collection copies.
-		if (!assembled) await this.decks.setAssembled(deck, false)
+		if (status !== 'assembled') await this.decks.setStatus(deck, status)
 		let added = 0
 		const deckLines: { id: string; link: string; qty: number }[] = []
 		for (const { card, quantity } of resolved) {
@@ -892,6 +897,28 @@ export default class TcgBinderPlugin extends Plugin {
 	/** Saved decklist snapshots: view, diff, restore, export. */
 	openDeckRevisions(file: TFile): void {
 		new DeckRevisionsModal(this.app, this, file).open()
+	}
+
+	/** Renames a collection/deck note in place, keeping links intact. */
+	openRename(file: TFile): void {
+		new RenameModal(this.app, file.basename, (name) => {
+			void (async () => {
+				try {
+					const safe = sanitizeFileName(name)
+					const folder = file.parent?.path ? `${file.parent.path}/` : ''
+					const path = normalizePath(`${folder}${safe}.md`)
+					if (this.app.vault.getAbstractFileByPath(path)) {
+						new Notice(t('rename.exists'))
+						return
+					}
+					// fileManager (not vault) so wikilinks pointing here update.
+					await this.app.fileManager.renameFile(file, path)
+					new Notice(t('rename.done', { name: safe }))
+				} catch (error) {
+					new Notice(String(error))
+				}
+			})()
+		}).open()
 	}
 
 	/** Set-tracking collection: every card of a chosen set as a qty-0 checklist. */

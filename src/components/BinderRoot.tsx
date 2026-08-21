@@ -340,6 +340,16 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 										/>
 									)}
 									<span className="tcgb-list-name">{file.basename}</span>
+									{plugin.decks.readStatus(file) === 'assembled' && (
+										<span className="tcgb-list-assembled" title={t('deck.status-hint')}>
+											✓ {t('status.assembled')}
+										</span>
+									)}
+									{plugin.decks.readStatus(file) === 'building' && (
+										<span className="tcgb-list-building" title={t('deck.status-hint')}>
+											{t('status.building')}
+										</span>
+									)}
 									{missing > 0 && (
 										<span
 											className="tcgb-list-missing-dot"

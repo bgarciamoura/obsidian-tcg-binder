@@ -1,11 +1,7 @@
 import { App, Modal, Setting } from 'obsidian'
 import type { ImportSummary } from './import-list-modal'
+import type { DeckStatus } from '../services/deck-store'
 import { t } from '../i18n'
-
-export interface ImportDeckOptions {
-	/** Show the "assembled" toggle (only meaningful while copies are reserved). */
-	showAssembled?: boolean
-}
 
 /** Paste a full TCG Live decklist and create a new deck note from it. */
 export class ImportDeckModal extends Modal {
@@ -13,8 +9,7 @@ export class ImportDeckModal extends Modal {
 
 	constructor(
 		app: App,
-		private readonly runImport: (name: string, text: string, assembled: boolean) => Promise<ImportSummary>,
-		private readonly options: ImportDeckOptions = {},
+		private readonly runImport: (name: string, text: string, status: DeckStatus) => Promise<ImportSummary>,
 	) {
 		super(app)
 	}
@@ -34,27 +29,28 @@ export class ImportDeckModal extends Modal {
 			})
 		})
 
-		// Imported lists are usually netdecks the user has not built yet, so
-		// the toggle starts OFF; without the reserve setting it stays hidden
-		// and the deck keeps the assembled default.
-		let assembled = !this.options.showAssembled
-		if (this.options.showAssembled) {
-			new Setting(contentEl)
-				.setName(t('deck.assembled'))
-				.setDesc(t('deck.assembled-hint'))
-				.addToggle((toggle) => {
-					toggle.setValue(assembled)
-					toggle.onChange((value) => {
-						assembled = value
-					})
+		// An imported decklist is usually a reference, not cards in hand —
+		// it starts as a plain list and gets promoted when the user starts
+		// buying for it (or picks another status here).
+		let status: DeckStatus = 'list'
+		new Setting(contentEl)
+			.setName(t('deck.status'))
+			.setDesc(t('deck.status-hint'))
+			.addDropdown((dd) => {
+				dd.addOption('list', t('status.list'))
+				dd.addOption('building', t('status.building'))
+				dd.addOption('assembled', t('status.assembled'))
+				dd.setValue(status)
+				dd.onChange((value) => {
+					status = value as DeckStatus
 				})
-		}
+			})
 
 		const textarea = contentEl.createEl('textarea', {
 			cls: 'tcgb-import-textarea',
 			attr: { rows: '12', placeholder: t('import.placeholder') },
 		})
-		const status = contentEl.createDiv('tcgb-import-status')
+		const statusEl = contentEl.createDiv('tcgb-import-status')
 		const failedEl = contentEl.createEl('pre', { cls: 'tcgb-import-failed' })
 		failedEl.hide()
 
@@ -63,7 +59,7 @@ export class ImportDeckModal extends Modal {
 				.setButtonText(t('import.submit'))
 				.setCta()
 				.onClick(() => {
-					void this.submit(name, textarea.value, assembled, status, failedEl, () => {
+					void this.submit(name, textarea.value, status, statusEl, failedEl, () => {
 						btn.setDisabled(this.busy)
 					})
 				}),
@@ -77,19 +73,19 @@ export class ImportDeckModal extends Modal {
 	private async submit(
 		name: string,
 		text: string,
-		assembled: boolean,
-		status: HTMLElement,
+		status: DeckStatus,
+		statusEl: HTMLElement,
 		failedEl: HTMLElement,
 		syncButton: () => void,
 	): Promise<void> {
 		if (this.busy || text.trim().length === 0) return
 		this.busy = true
 		syncButton()
-		status.setText(t('import.running'))
+		statusEl.setText(t('import.running'))
 		failedEl.hide()
 		try {
-			const summary = await this.runImport(name.trim(), text, assembled)
-			status.setText(t('import.summary', { added: summary.added, failed: summary.failed.length }))
+			const summary = await this.runImport(name.trim(), text, status)
+			statusEl.setText(t('import.summary', { added: summary.added, failed: summary.failed.length }))
 			if (summary.failed.length > 0) {
 				failedEl.setText(summary.failed.join('\n'))
 				failedEl.show()
@@ -97,7 +93,7 @@ export class ImportDeckModal extends Modal {
 				this.close()
 			}
 		} catch (error) {
-			status.setText(String(error))
+			statusEl.setText(String(error))
 		} finally {
 			this.busy = false
 			syncButton()
