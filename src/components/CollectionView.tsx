@@ -289,6 +289,14 @@ export function CollectionView({ plugin, file, version, onBack }: CollectionView
 					← {t('view.back')}
 				</button>
 				<h2 className="tcgb-title">{file.basename}</h2>
+				<button
+					className="tcgb-btn tcgb-mode-toggle"
+					title={t('rename.title')}
+					aria-label={t('rename.title')}
+					onClick={() => plugin.openRename(file)}
+				>
+					✎
+				</button>
 			</div>
 
 			<div className="tcgb-summary">
