@@ -1748,3 +1748,13 @@ select.tcgb-cond {
 .tcgb-order-remove:hover {
 	color: var(--text-error);
 }
+
+/* Dashboard drag-and-drop reorder */
+.tcgb-dragging {
+	opacity: 0.45;
+}
+
+.tcgb-drop-target {
+	box-shadow: inset 0 0 0 2px var(--interactive-accent);
+	border-radius: var(--radius-m);
+}

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Notice, type TFile } from 'obsidian'
 import { useApp } from '../context'
 import { ConfirmModal } from '../modals/confirm-modal'
 import { CardDetailModal } from '../modals/card-detail-modal'
 import { matchesAllTokens } from '../domain/text-match'
+import { moveItem } from '../domain/reorder'
 import { resolveImageSource } from '../utils/vault'
 import type { StoredEntry } from '../services/collection-store'
 import { t } from '../i18n'
@@ -47,8 +48,76 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 		).open()
 	}
 
-	const collections = useMemo(() => plugin.store.listFiles('collection'), [plugin, version])
-	const decks = useMemo(() => plugin.store.listFiles('deck'), [plugin, version])
+	// Drag-and-drop reorder. The override map mirrors the order just dropped
+	// so the UI updates instantly — the persisted `sort-order` frontmatter
+	// catches up once the metadataCache reparses the touched notes.
+	const [dragging, setDragging] = useState<{ kind: 'collection' | 'deck'; path: string } | null>(null)
+	const [dropTarget, setDropTarget] = useState<string | null>(null)
+	const [orderOverride, setOrderOverride] = useState<Map<string, number>>(new Map())
+
+	const sortForDisplay = (files: TFile[]) => {
+		if (orderOverride.size === 0) return files
+		return [...files].sort((a, b) => {
+			const rankA = orderOverride.get(a.path) ?? plugin.store.getSortOrder(a) ?? Number.MAX_SAFE_INTEGER
+			const rankB = orderOverride.get(b.path) ?? plugin.store.getSortOrder(b) ?? Number.MAX_SAFE_INTEGER
+			return rankA - rankB || a.basename.localeCompare(b.basename)
+		})
+	}
+
+	const collections = useMemo(
+		() => sortForDisplay(plugin.store.listFiles('collection')),
+		[plugin, version, orderOverride],
+	)
+	const decks = useMemo(() => sortForDisplay(plugin.store.listFiles('deck')), [plugin, version, orderOverride])
+
+	const handleDrop = (kind: 'collection' | 'deck', files: TFile[], targetPath: string) => {
+		const source = dragging
+		setDragging(null)
+		setDropTarget(null)
+		if (!source || source.kind !== kind || source.path === targetPath) return
+		const from = files.findIndex((file) => file.path === source.path)
+		const to = files.findIndex((file) => file.path === targetPath)
+		if (from < 0 || to < 0) return
+		const next = moveItem(files, from, to)
+		setOrderOverride((prev) => {
+			const merged = new Map(prev)
+			next.forEach((file, index) => merged.set(file.path, index))
+			return merged
+		})
+		void plugin.store.applySortOrder(next)
+	}
+
+	/** Drag handlers + classes for one dashboard item of a reorderable list. */
+	const dragProps = (kind: 'collection' | 'deck', files: TFile[], file: TFile) => ({
+		draggable: true,
+		className: `tcgb-list-item ${dragging?.path === file.path ? 'tcgb-dragging' : ''} ${
+			dropTarget === file.path && dragging !== null && dragging.kind === kind && dragging.path !== file.path
+				? 'tcgb-drop-target'
+				: ''
+		}`,
+		onDragStart: (event: DragEvent) => {
+			event.dataTransfer.setData('text/plain', file.path)
+			event.dataTransfer.effectAllowed = 'move'
+			setDragging({ kind, path: file.path })
+		},
+		onDragOver: (event: DragEvent) => {
+			if (dragging?.kind !== kind) return
+			event.preventDefault()
+			event.dataTransfer.dropEffect = 'move'
+			setDropTarget(file.path)
+		},
+		onDragLeave: () => {
+			setDropTarget((current) => (current === file.path ? null : current))
+		},
+		onDrop: (event: DragEvent) => {
+			event.preventDefault()
+			handleDrop(kind, files, file.path)
+		},
+		onDragEnd: () => {
+			setDragging(null)
+			setDropTarget(null)
+		},
+	})
 	const cardIndex = useMemo(() => plugin.cardNotes.buildIndex(), [plugin, version])
 
 	/** Missing-card count per deck, for the subtle dashboard indicator. */
@@ -293,7 +362,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 					</h3>
 					<div className={layout === 'grid' ? 'tcgb-list-grid' : ''}>
 						{collections.map((file) => (
-							<div key={file.path} className="tcgb-list-item">
+							<div key={file.path} {...dragProps('collection', collections, file)}>
 								<CollectionRow
 									plugin={plugin}
 									file={file}
@@ -326,7 +395,7 @@ export function BinderRoot({ plugin }: BinderRootProps) {
 						const cover = resolveImageSource(app, plugin.store.getCover(file))
 						const missing = deckMissing.get(file.path) ?? 0
 						return (
-							<div key={file.path} className="tcgb-list-item">
+							<div key={file.path} {...dragProps('deck', decks, file)}>
 								<button
 									className={`tcgb-list-row ${cover ? 'tcgb-list-row-covered' : ''}`}
 									onClick={() => setSelected({ kind: 'deck', file })}

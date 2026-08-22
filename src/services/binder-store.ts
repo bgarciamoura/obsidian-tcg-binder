@@ -23,9 +23,34 @@ export class BinderStore {
 
 	listFiles(type: BinderFileType): TFile[] {
 		// Scoped to the binder folder — the plugin never enumerates the vault.
-		return listMarkdownFilesIn(this.app, this.rootFolder()).filter(
-			(file) => this.getFileType(file) === type,
-		)
+		return listMarkdownFilesIn(this.app, this.rootFolder())
+			.filter((file) => this.getFileType(file) === type)
+			.sort((a, b) => {
+				// User-chosen dashboard order; notes without one go last, A–Z.
+				const orderA = this.getSortOrder(a) ?? Number.MAX_SAFE_INTEGER
+				const orderB = this.getSortOrder(b) ?? Number.MAX_SAFE_INTEGER
+				return orderA - orderB || a.basename.localeCompare(b.basename)
+			})
+	}
+
+	/** Dashboard position of a collection/deck, set by drag-and-drop. */
+	getSortOrder(file: TFile): number | null {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter
+		const order: unknown = frontmatter?.['sort-order']
+		return typeof order === 'number' && Number.isFinite(order) ? order : null
+	}
+
+	/**
+	 * Persists the given display order as sequential positions, touching
+	 * only the notes whose stored position actually changed.
+	 */
+	async applySortOrder(files: TFile[]): Promise<void> {
+		for (const [index, file] of files.entries()) {
+			if (this.getSortOrder(file) === index) continue
+			await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+				fm['sort-order'] = index
+			})
+		}
 	}
 
 	/** Optional role of a collection, e.g. "wishlist". */
