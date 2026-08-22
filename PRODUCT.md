@@ -75,7 +75,7 @@ O alicerce de tudo: sem busca de cartas não existe coleção nem deck.
 
 O TCG Binder está publicado na community store do Obsidian. Roadmap v1 concluído; próximas ideias entram como issues no GitHub.
 
-### Pós-lançamento — entregas até 1.18.0 (2026-08)
+### Pós-lançamento — entregas até 1.19.0 (2026-08)
 
 Notas completas por versão em `docs/release-notes/`. Destaques desde o lançamento:
 
@@ -98,6 +98,7 @@ Notas completas por versão em `docs/release-notes/`. Destaques desde o lançame
 - [x] **1.16.0** — **alocação por deck** (`allocated` na entry: cartas adicionadas pela lista de faltantes pertencem àquele deck — garantidas na conta dele e reservadas dos outros, mesmo sem estar montado); **toggle lista/duas colunas no dashboard** (persistido; grid com altura uniforme e nome em linha própria); fix: lista de faltantes exibe uma linha por impressão (pool por nome distribuído na ordem do deck) em vez de fundir tudo na primeira impressão
 - [x] **1.17.0** — **revisões de deck** (snapshots no frontmatter: salvar com rótulo, ver lista, diff vs atual, restaurar com backup automático, exportar, excluir); fix no export (códigos de set faltantes resolvidos + alias de promo do TCG Live)
 - [x] **1.18.0** — **rastreador de compras** (🛒 "compradas, a caminho" por impressão; número grande vira o para-comprar, linha 100% comprada esmaece, custo/wishlist ignoram compradas, chegada via + baixa o contador; badges "2/4" de cobertura por linha e tile "A caminho"); **status de deck em 3 estados** (Montado/Montando/Lista com selos no dashboard, promoção automática Lista→Montando por atividade de compra, import nasce Lista); **renomear coleção/deck pela UI** (✎ no header, wikilinks preservados)
+- [x] **1.19.0** — **compras com origem**: o modal 🛒 virou lista de compras (uma linha por vendedor: qty + onde/de quem), exibida na lista de faltantes ("4 a caminho (2 Liga · 1 João · 1 OLX)"); chegada via + baixa da compra mais antiga; frontmatter migra `ordered`/`ordered-from` → lista `orders` automaticamente
 
 ## Modelo de dados (proposta — validar na Fase 1)
 
