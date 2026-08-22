@@ -1706,3 +1706,45 @@ select.tcgb-cond {
 	color: var(--text-normal);
 	background: var(--background-modifier-hover);
 }
+
+/* Purchase-list editor (bought, on the way) */
+.tcgb-order-desc {
+	margin: 0 0 var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-order-empty {
+	margin: 0 0 var(--size-4-2);
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+}
+
+.tcgb-order-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+}
+
+.tcgb-order-qty {
+	width: 64px;
+	flex-shrink: 0;
+	text-align: center;
+}
+
+.tcgb-order-from {
+	flex: 1;
+	min-width: 0;
+}
+
+.tcgb-order-remove {
+	flex-shrink: 0;
+	padding: 0 var(--size-4-2);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.tcgb-order-remove:hover {
+	color: var(--text-error);
+}

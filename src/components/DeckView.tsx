@@ -247,21 +247,15 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 	}
 
 	const editOrdered = (row: (typeof missing)[number]) => {
-		new OrderedQtyModal(
-			app,
-			row.meta?.name ?? row.id,
-			row.orderedQty,
-			row.missingQty,
-			(ordered) => {
-				void (async () => {
-					await plugin.decks.bumpOrdered(file, row.id, ordered - row.orderedQty)
-					// Buying activity IS the "actively hunting cards" signal.
-					if (ordered > 0 && plugin.decks.readStatus(file) === 'list') {
-						await plugin.decks.setStatus(file, 'building')
-					}
-				})()
-			},
-		).open()
+		new OrderedQtyModal(app, row.meta?.name ?? row.id, row.orders, row.missingQty, (orders) => {
+			void (async () => {
+				await plugin.decks.setOrders(file, row.id, orders)
+				// Buying activity IS the "actively hunting cards" signal.
+				if (orders.length > 0 && plugin.decks.readStatus(file) === 'list') {
+					await plugin.decks.setStatus(file, 'building')
+				}
+			})()
+		}).open()
 	}
 
 	return (
@@ -503,6 +497,15 @@ export function DeckView({ plugin, file, version, onBack }: DeckViewProps) {
 											)}
 										{row.orderedQty > 0 &&
 											t('deck.missing-ordered', { ordered: row.orderedQty })}
+										{row.orderedQty > 0 &&
+											row.orders.some((order) => order.from.length > 0) &&
+											` (${row.orders
+												.map((order) =>
+													order.from.length > 0
+														? `${order.qty} ${order.from}`
+														: `${order.qty}×`,
+												)
+												.join(' · ')})`}
 									</span>
 								)}
 							</div>

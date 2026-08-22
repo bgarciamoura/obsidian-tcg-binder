@@ -17,13 +17,76 @@ export interface DeckStoredEntry {
 	 */
 	allocated: number
 	/**
-	 * Copies bought but not yet in hand ("on the way"). NOT ownership: they
-	 * never count as collection copies or reserve anything — they only stop
-	 * the missing list from telling the user to buy them again. Registering
-	 * the arrival (the missing list's + button) burns them down. Never
-	 * exceeds qty.
+	 * Purchases in transit for this line, one per seller/place. NOT
+	 * ownership: they never count as collection copies or reserve anything —
+	 * they only stop the missing list from telling the user to buy them
+	 * again. Registering the arrival (the missing list's + button) burns
+	 * them down oldest-first. Total never exceeds qty.
 	 */
+	orders: DeckOrder[]
+	/** Total copies bought and on the way (sum of `orders`). */
 	ordered: number
+}
+
+/** One purchase in transit: how many copies and where/from whom (free text). */
+export interface DeckOrder {
+	qty: number
+	from: string
+}
+
+/**
+ * Reads a line's in-transit purchases from its raw frontmatter record,
+ * migrating the pre-list shape (`ordered` counter + `ordered-from` note)
+ * into a single purchase. The total is clamped to `qty` by trimming the
+ * newest purchases.
+ */
+function parseOrders(item: Record<string, unknown>, qty: number): DeckOrder[] {
+	const raw: unknown = item.orders
+	const orders: DeckOrder[] = []
+	if (Array.isArray(raw)) {
+		for (const line of raw as unknown[]) {
+			if (!isRecord(line)) continue
+			const lineQty =
+				typeof line.qty === 'number' && Number.isInteger(line.qty) && line.qty > 0 ? line.qty : 0
+			if (lineQty === 0) continue
+			orders.push({ qty: lineQty, from: typeof line.from === 'string' ? line.from : '' })
+		}
+	} else {
+		const ordered =
+			typeof item.ordered === 'number' && Number.isInteger(item.ordered) && item.ordered > 0
+				? item.ordered
+				: 0
+		if (ordered > 0) {
+			orders.push({
+				qty: ordered,
+				from: typeof item['ordered-from'] === 'string' ? item['ordered-from'] : '',
+			})
+		}
+	}
+	let total = 0
+	const clamped: DeckOrder[] = []
+	for (const order of orders) {
+		const room = qty - total
+		if (room <= 0) break
+		const orderQty = Math.min(order.qty, room)
+		clamped.push({ qty: orderQty, from: order.from })
+		total += orderQty
+	}
+	return clamped
+}
+
+/** Writes the purchases back onto a raw entry record; empty list clears it. */
+function writeOrders(entry: Record<string, unknown>, orders: DeckOrder[]): void {
+	if (orders.length > 0) {
+		entry.orders = orders.map((order) =>
+			order.from.trim().length > 0 ? { qty: order.qty, from: order.from.trim() } : { qty: order.qty },
+		)
+	} else {
+		delete entry.orders
+	}
+	// Pre-list shape, superseded by `orders`.
+	delete entry.ordered
+	delete entry['ordered-from']
 }
 
 /** Deck lifecycle: physically built, actively being hunted, or just a list. */
@@ -57,18 +120,36 @@ export class DeckStore {
 				typeof item.allocated === 'number' && Number.isInteger(item.allocated) && item.allocated > 0
 					? Math.min(item.allocated, qty)
 					: 0
-			const ordered =
-				typeof item.ordered === 'number' && Number.isInteger(item.ordered) && item.ordered > 0
-					? Math.min(item.ordered, qty)
-					: 0
-			return [{ id, qty, allocated, ordered, link: typeof item.link === 'string' ? item.link : '' }]
+			const orders = parseOrders(item, qty)
+			const ordered = orders.reduce((sum, order) => sum + order.qty, 0)
+			return [{ id, qty, allocated, orders, ordered, link: typeof item.link === 'string' ? item.link : '' }]
 		})
 	}
 
 	/**
-	 * Adjusts the "bought, on the way" count of a line by `delta`, clamped
-	 * to [0, qty]. Positive when the user marks a purchase, negative when
-	 * the cards arrive and get registered.
+	 * Replaces a line's in-transit purchases with the given list (invalid
+	 * lines dropped, total clamped to qty). An empty list clears the state.
+	 */
+	async setOrders(file: TFile, cardId: string, orders: DeckOrder[]): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const raw: unknown = fm.entries
+			const list: unknown[] = Array.isArray(raw) ? [...(raw as unknown[])] : []
+			const index = list.findIndex((item) => isRecord(item) && item.id === cardId)
+			if (index < 0 || !isRecord(list[index])) return
+			const current = list[index]
+			const qty = typeof current.qty === 'number' ? current.qty : 0
+			const entry: Record<string, unknown> = { ...current }
+			writeOrders(entry, parseOrders({ orders }, qty))
+			list[index] = entry
+			fm.entries = list
+		})
+	}
+
+	/**
+	 * Adjusts a line's total in-transit count by `delta`. Negative when the
+	 * cards arrive and get registered — burns purchases oldest-first, so the
+	 * remaining notes keep describing the copies still on the way. Positive
+	 * adds an unattributed purchase (clamped to qty).
 	 */
 	async bumpOrdered(file: TFile, cardId: string, delta: number): Promise<void> {
 		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -78,11 +159,21 @@ export class DeckStore {
 			if (index < 0 || !isRecord(list[index])) return
 			const current = list[index]
 			const qty = typeof current.qty === 'number' ? current.qty : 0
-			const ordered = typeof current.ordered === 'number' ? current.ordered : 0
-			const next = Math.max(0, Math.min(qty, ordered + delta))
+			const orders = parseOrders(current, qty)
+			if (delta >= 0) {
+				if (delta > 0) orders.push({ qty: delta, from: '' })
+			} else {
+				let toBurn = -delta
+				while (toBurn > 0 && orders.length > 0) {
+					const oldest = orders[0]
+					const burned = Math.min(oldest.qty, toBurn)
+					oldest.qty -= burned
+					toBurn -= burned
+					if (oldest.qty === 0) orders.shift()
+				}
+			}
 			const entry: Record<string, unknown> = { ...current }
-			if (next > 0) entry.ordered = next
-			else delete entry.ordered
+			writeOrders(entry, parseOrders({ orders }, qty))
 			list[index] = entry
 			fm.entries = list
 		})

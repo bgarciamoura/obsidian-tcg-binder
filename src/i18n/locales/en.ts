@@ -158,8 +158,12 @@ export const en = {
 	'deck.ordered-stat': 'On the way',
 	'deck.coverage-tooltip': '{covered} of {qty} covered · {ordered} on the way',
 	'ordered.title': '{name} — bought, on the way',
-	'ordered.label': 'Copies on the way',
-	'ordered.desc': 'Bought but not in hand yet, up to the {max} this deck misses. Zero clears it.',
+	'ordered.list-desc':
+		'One line per purchase: how many copies and where/from whom. Up to {max} copies in total; an empty list clears it.',
+	'ordered.empty': 'No purchases on the way',
+	'ordered.add': 'Add purchase',
+	'ordered.remove': 'Remove purchase',
+	'ordered.from-placeholder': 'Store, marketplace, a friend…',
 	'notice.deck-copied': 'Decklist copied to clipboard',
 	'notice.export-missing-codes':
 		'No set code found for: {cards}. These lines may fail to import in TCG Live.',

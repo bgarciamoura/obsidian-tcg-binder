@@ -159,8 +159,12 @@ export const ptBR: Partial<Record<keyof typeof en, string>> = {
 	'deck.ordered-stat': 'A caminho',
 	'deck.coverage-tooltip': '{covered} de {qty} cobertas · {ordered} a caminho',
 	'ordered.title': '{name} — compradas, a caminho',
-	'ordered.label': 'Cópias a caminho',
-	'ordered.desc': 'Compradas mas ainda não em mãos, até as {max} que faltam neste deck. Zero limpa o estado.',
+	'ordered.list-desc':
+		'Uma linha por compra: quantas cópias e onde/de quem. No máximo {max} cópias no total; lista vazia limpa o estado.',
+	'ordered.empty': 'Nenhuma compra a caminho',
+	'ordered.add': 'Adicionar compra',
+	'ordered.remove': 'Remover compra',
+	'ordered.from-placeholder': 'Loja, marketplace, um amigo…',
 	'notice.deck-copied': 'Decklist copiada para o clipboard',
 	'notice.export-missing-codes':
 		'Sem código de set para: {cards}. Essas linhas podem falhar na importação do TCG Live.',
